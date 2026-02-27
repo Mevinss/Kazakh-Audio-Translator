@@ -34,12 +34,16 @@ class AudioProcessor:
 
     def normalize_audio(self, audio_path: str) -> str:
         """Normalize audio volume using FFmpeg loudnorm filter."""
-        base, ext = os.path.splitext(audio_path)
-        output_path = base + '_normalized' + ext
+        base, _ = os.path.splitext(audio_path)
+        # Always produce a WAV file so FFmpeg never has to guess the output
+        # format (which fails when the input file has no extension, e.g. when
+        # secure_filename strips Cyrillic characters from the original name).
+        output_path = base + '_normalized.wav'
 
         cmd = [
             'ffmpeg', '-y', '-i', audio_path,
             '-af', 'loudnorm',
+            '-acodec', 'pcm_s16le',
             '-ar', str(self.SAMPLE_RATE),
             '-ac', '1',
             output_path

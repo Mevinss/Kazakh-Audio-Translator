@@ -275,5 +275,162 @@ class TestConfig(unittest.TestCase):
         self.assertNotIn('txt', config.ALLOWED_EXTENSIONS)
 
 
+# ---------------------------------------------------------------------------
+# AudioProcessor tests (mocked FFmpeg)
+# ---------------------------------------------------------------------------
+
+class TestAudioProcessor(unittest.TestCase):
+    """Tests for AudioProcessor that do not require a real FFmpeg binary."""
+
+    def _make_processor(self):
+        from modules.audio_processor import AudioProcessor
+        return AudioProcessor()
+
+    def test_normalize_audio_output_always_wav(self):
+        """normalize_audio must produce a .wav output path regardless of input extension.
+
+        Regression: previously the output extension was inherited from the
+        input, so an extensionless input (e.g. '{uuid}_mp4', which happens
+        when secure_filename strips a Cyrillic base name) produced an
+        extensionless output and FFmpeg failed with
+        "Unable to choose an output format".
+        """
+        proc = self._make_processor()
+
+        # Patch subprocess.run so we don't need a real FFmpeg
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = None  # success
+
+            # Case 1: extensionless input (Cyrillic filename stripped)
+            out = proc.normalize_audio('/uploads/abc123_mp4')
+            self.assertTrue(out.endswith('.wav'),
+                            f"Expected .wav output, got: {out}")
+            # The FFmpeg command must include the .wav output path
+            cmd = mock_run.call_args[0][0]
+            self.assertEqual(cmd[-1], out)
+            self.assertIn('-acodec', cmd)
+            self.assertIn('pcm_s16le', cmd)
+
+            # Case 2: normal .wav input — still .wav
+            out2 = proc.normalize_audio('/uploads/abc_extracted.wav')
+            self.assertTrue(out2.endswith('.wav'),
+                            f"Expected .wav output, got: {out2}")
+
+            # Case 3: .mp3 input — now .wav
+            out3 = proc.normalize_audio('/uploads/abc_audio.mp3')
+            self.assertTrue(out3.endswith('.wav'),
+                            f"Expected .wav output for mp3 input, got: {out3}")
+
+    def test_prepare_audio_cyrillic_filename_calls_extract_for_video(self):
+        """prepare_audio must call extract_audio for video files.
+
+        Regression: when the file was saved with the extension restored after
+        secure_filename stripped Cyrillic characters (e.g. 'abc_mp4.mp4'),
+        prepare_audio must recognise it as a video and call extract_audio.
+        """
+        proc = self._make_processor()
+
+        with patch.object(proc, 'extract_audio', return_value='/tmp/extracted.wav') as mock_extract, \
+             patch.object(proc, 'normalize_audio', return_value='/tmp/extracted_normalized.wav') as mock_norm:
+            result = proc.prepare_audio('/uploads/abc_mp4.mp4')
+            mock_extract.assert_called_once_with('/uploads/abc_mp4.mp4')
+            mock_norm.assert_called_once_with('/tmp/extracted.wav')
+            self.assertEqual(result, '/tmp/extracted_normalized.wav')
+
+    def test_prepare_audio_audio_only_skips_extract(self):
+        """prepare_audio must NOT call extract_audio for audio-only files."""
+        proc = self._make_processor()
+
+        with patch.object(proc, 'extract_audio') as mock_extract, \
+             patch.object(proc, 'normalize_audio', return_value='/tmp/n.wav'):
+            proc.prepare_audio('/uploads/abc.wav')
+            mock_extract.assert_not_called()
+
+
+class TestCyrillicFilenameHandling(unittest.TestCase):
+    """Tests that verify the upload route preserves file extensions when
+    secure_filename strips a Cyrillic base name."""
+
+    def setUp(self):
+        import config
+        import importlib
+        import tempfile
+
+        self._tmp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+        self._tmp_db.close()
+        self._tmp_upload = tempfile.mkdtemp()
+
+        self._orig_db = config.DATABASE_PATH
+        self._orig_upload = config.UPLOAD_FOLDER
+        config.DATABASE_PATH = self._tmp_db.name
+        config.UPLOAD_FOLDER = self._tmp_upload
+
+        import modules.database as db_module
+        importlib.reload(db_module)
+
+        import app as flask_app
+        importlib.reload(flask_app)
+
+        flask_app.app.config['TESTING'] = True
+        self.client = flask_app.app.test_client()
+
+    def tearDown(self):
+        import config
+        import shutil
+        config.DATABASE_PATH = self._orig_db
+        config.UPLOAD_FOLDER = self._orig_upload
+        os.unlink(self._tmp_db.name)
+        shutil.rmtree(self._tmp_upload, ignore_errors=True)
+
+    def _upload(self, filename, content=b'fake'):
+        import app as flask_app
+        mock_result = {
+            'text': 'test', 'segments': [], 'duration': 1.0,
+            'confidence': 0.9, 'processing_time': 0.1,
+        }
+        mock_transcriber = MagicMock()
+        mock_transcriber.transcribe.return_value = mock_result
+
+        with patch.object(flask_app, '_get_transcriber', return_value=mock_transcriber), \
+             patch('modules.audio_processor.AudioProcessor.prepare_audio',
+                   return_value='/tmp/fake.wav'):
+            self.client.post(
+                '/transcribe',
+                content_type='multipart/form-data',
+                data={
+                    'file': (io.BytesIO(content), filename),
+                    'models': ['whisper_base'],
+                },
+            )
+
+    def _saved_filenames(self):
+        import config
+        return os.listdir(config.UPLOAD_FOLDER)
+
+    def test_cyrillic_mp4_preserves_extension(self):
+        """File 'Видео.mp4' must be saved with a .mp4 extension."""
+        self._upload('Видео.mp4')
+        files = self._saved_filenames()
+        self.assertEqual(len(files), 1, f"Expected 1 uploaded file, got: {files}")
+        self.assertTrue(files[0].endswith('.mp4'),
+                        f"Expected .mp4 extension, saved as: {files[0]}")
+
+    def test_cyrillic_wav_preserves_extension(self):
+        """File 'аудио.wav' must be saved with a .wav extension."""
+        self._upload('аудио.wav')
+        files = self._saved_filenames()
+        self.assertEqual(len(files), 1, f"Expected 1 uploaded file, got: {files}")
+        self.assertTrue(files[0].endswith('.wav'),
+                        f"Expected .wav extension, saved as: {files[0]}")
+
+    def test_ascii_filename_unchanged(self):
+        """ASCII filename 'video.mp4' must continue to work correctly."""
+        self._upload('video.mp4')
+        files = self._saved_filenames()
+        self.assertEqual(len(files), 1)
+        self.assertTrue(files[0].endswith('.mp4'),
+                        f"Expected .mp4 extension, saved as: {files[0]}")
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -131,7 +131,17 @@ def transcribe():
     reference_text = request.form.get('reference', '').strip() or None
 
     # Save file
+    # secure_filename strips non-ASCII (e.g. Cyrillic) characters.  When the
+    # base name is entirely non-ASCII the extension is also lost, so a file
+    # like "Видео.mp4" becomes just "mp4" instead of "video.mp4".  Preserve
+    # the original extension explicitly so FFmpeg can detect the format and
+    # prepare_audio() can identify video files correctly.
+    original_ext = os.path.splitext(uploaded_file.filename)[1].lower()
     filename = secure_filename(uploaded_file.filename)
+    if (original_ext
+            and original_ext.lstrip('.') in config.ALLOWED_EXTENSIONS
+            and not os.path.splitext(filename)[1]):
+        filename = filename + original_ext
     unique_prefix = uuid.uuid4().hex
     filename = f"{unique_prefix}_{filename}"
     file_path = os.path.join(config.UPLOAD_FOLDER, filename)
