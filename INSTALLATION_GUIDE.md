@@ -382,6 +382,203 @@ asr = WhisperASR(model_size="large-v3", device="cpu")
 3. Используйте качество перевода "fast" вместо "premium"
 4. Увеличьте RAM (минимум 16GB для large-v3)
 
+### Проблема: Docker занимает слишком много места на диске C
+
+Docker со временем накапливает образы, контейнеры, тома и кэш сборок. Ниже описано, как освободить место и/или перенести данные Docker на другой диск (например, диск D на Windows).
+
+#### Шаг 1 — Проверить, сколько места занимает Docker
+
+```bash
+# Сводка по всем объектам Docker
+docker system df
+
+# Пример вывода:
+# TYPE            TOTAL   ACTIVE   SIZE      RECLAIMABLE
+# Images          12      3        8.2GB     6.1GB (74%)
+# Containers      5       2        150MB     80MB (53%)
+# Local Volumes   4       2        2.3GB     1.1GB (47%)
+# Build Cache     38      0        1.5GB     1.5GB
+```
+
+#### Шаг 2 — Освободить место (очистка)
+
+```bash
+# Удалить остановленные контейнеры, неиспользуемые образы,
+# сети и кэш сборок одной командой:
+docker system prune -a
+
+# Удалить только неиспользуемые тома (ОСТОРОЖНО — данные БД!):
+docker volume prune
+
+# Удалить только кэш сборок:
+docker builder prune -a
+
+# Удалить конкретный образ вручную:
+docker image rm <IMAGE_ID>
+```
+
+> ⚠️ `docker system prune -a` удаляет **все** образы, которые не используются
+> запущенными контейнерами. Перед выполнением убедитесь, что проект остановлен:
+> `docker-compose down`.
+
+---
+
+#### Перенос Docker на диск D (Windows)
+
+Docker Desktop на Windows хранит все данные (образы, тома) внутри виртуального
+диска WSL 2 — файлов `ext4.vhdx`, которые по умолчанию находятся на диске C.
+Ниже два способа перенести их на диск D.
+
+---
+
+##### Способ А — через настройки Docker Desktop (рекомендуется)
+
+1. Откройте **Docker Desktop**.
+2. Перейдите в **Settings → Resources → Advanced**.
+3. В поле **Disk image location** нажмите **Browse** и выберите папку на диске D,
+   например `D:\DockerData`.
+4. Нажмите **Apply & Restart**.
+
+Docker Desktop автоматически переместит виртуальный диск в новое место.
+
+---
+
+##### Способ Б — перенос через WSL 2 вручную
+
+Используйте этот способ, если Способ А недоступен или нужен полный контроль.
+
+> **Требования:** PowerShell (с правами администратора), WSL 2.
+
+**1. Остановите Docker Desktop и WSL**
+
+```powershell
+# Закройте Docker Desktop через трей (правая кнопка → Quit Docker Desktop)
+# Затем завершите все WSL-процессы:
+wsl --shutdown
+```
+
+**2. Проверьте список дистрибутивов WSL**
+
+```powershell
+wsl --list --verbose
+
+# Пример вывода:
+#   NAME                   STATE           VERSION
+# * Ubuntu                 Running         2
+#   docker-desktop         Stopped         2
+#   docker-desktop-data    Stopped         2
+```
+
+Docker использует два скрытых дистрибутива:
+- `docker-desktop` — системные файлы Docker
+- `docker-desktop-data` — образы, тома, контейнеры (занимает больше всего места)
+
+**3. Создайте целевую папку на диске D**
+
+```powershell
+New-Item -ItemType Directory -Path "D:\DockerWSL\data"
+New-Item -ItemType Directory -Path "D:\DockerWSL\desktop"
+```
+
+**4. Экспортируйте дистрибутивы в tar-файлы**
+
+```powershell
+wsl --export docker-desktop-data "D:\DockerWSL\docker-desktop-data.tar"
+wsl --export docker-desktop      "D:\DockerWSL\docker-desktop.tar"
+```
+
+**5. Удалите старые дистрибутивы с диска C**
+
+```powershell
+wsl --unregister docker-desktop-data
+wsl --unregister docker-desktop
+```
+
+**6. Импортируйте дистрибутивы в новое расположение на диске D**
+
+```powershell
+wsl --import docker-desktop-data "D:\DockerWSL\data"    "D:\DockerWSL\docker-desktop-data.tar" --version 2
+wsl --import docker-desktop      "D:\DockerWSL\desktop" "D:\DockerWSL\docker-desktop.tar"      --version 2
+```
+
+**7. Запустите Docker Desktop**
+
+Откройте Docker Desktop как обычно. Все данные теперь будут читаться с диска D.
+
+**8. Проверьте результат**
+
+```powershell
+wsl --list --verbose
+# docker-desktop и docker-desktop-data должны отображаться как Stopped/Running
+
+docker info | Select-String "Docker Root Dir"
+# Должно показать путь внутри WSL на диске D
+```
+
+**9. (Опционально) Удалите временные tar-файлы**
+
+```powershell
+Remove-Item "D:\DockerWSL\docker-desktop-data.tar"
+Remove-Item "D:\DockerWSL\docker-desktop.tar"
+```
+
+---
+
+#### Перенос Docker на другой диск (Linux)
+
+На Linux данные Docker хранятся в `/var/lib/docker`. Чтобы перенести их на
+другой раздел или диск:
+
+```bash
+# 1. Остановите Docker
+sudo systemctl stop docker
+
+# 2. Скопируйте данные на новый диск (например, /mnt/data/docker)
+sudo rsync -aP /var/lib/docker/ /mnt/data/docker/
+
+# 3. Отредактируйте /etc/docker/daemon.json
+sudo nano /etc/docker/daemon.json
+```
+
+Добавьте или измените параметр `data-root`:
+
+```json
+{
+  "data-root": "/mnt/data/docker"
+}
+```
+
+```bash
+# 4. Запустите Docker и проверьте
+sudo systemctl start docker
+docker info | grep "Docker Root Dir"
+# Должно вывести: Docker Root Dir: /mnt/data/docker
+
+# 5. После проверки удалите старую папку
+sudo rm -rf /var/lib/docker
+```
+
+---
+
+#### Настройка лимита размера виртуального диска WSL 2 (Windows)
+
+По умолчанию WSL 2 позволяет виртуальному диску расти до 1 ТБ. Чтобы ограничить
+максимальный размер, создайте (или отредактируйте) файл `%USERPROFILE%\.wslconfig`:
+
+```ini
+[wsl2]
+# Максимальный размер виртуального диска для WSL 2 (например, 60 ГБ)
+diskSizeGB=60
+```
+
+После сохранения выполните:
+
+```powershell
+wsl --shutdown
+```
+
+и перезапустите Docker Desktop.
+
 ---
 
 ## 📚 Дополнительные ресурсы
