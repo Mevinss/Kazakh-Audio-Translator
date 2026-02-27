@@ -1,410 +1,247 @@
-# 📦 Полная инструкция по развертыванию проекта
+# 📦 Инструкция по установке и запуску
 
-## ✅ Содержимое архива
-
-Проект состоит из следующих компонентов:
-
-```
-kazakh-media-translator/
-├── backend/              # FastAPI сервер
-├── frontend/             # Next.js фронтенд  
-├── ml_pipeline/          # ML модули и Jupyter notebooks
-├── docker/               # Docker конфигурации
-├── workers/              # Celery workers (фоновая обработка)
-├── docker-compose.yml    # Оркестрация всех сервисов
-├── README.md             # Общая документация
-└── QUICKSTART.md         # Быстрый старт
-```
+> ⚡ **Кратко:** Docker для этого проекта **не нужен**.
+> Приложение — это обычный веб-сервер на Python (Flask), который запускается
+> командой `python app.py`. Для работы достаточно Python 3.9+, FFmpeg и
+> нескольких pip-пакетов.
 
 ---
 
-## 🚀 СПОСОБ 1: Быстрый запуск с Docker (5 минут)
+## ✅ Структура проекта
 
-### Требования
-- Docker 20.10+
-- Docker Compose 2.0+
-- 8GB RAM минимум
-- 20GB свободного места
-
-### Шаги
-
-1. **Распакуйте архив**
-```bash
-unzip kazakh-media-translator.zip
-cd kazakh-media-translator
+```
+Kazakh-Audio-Translator/
+├── app.py                       # Flask-приложение (точка входа)
+├── config.py                    # Конфигурация
+├── requirements.txt             # Python-зависимости
+├── modules/
+│   ├── audio_processor.py       # Извлечение / нормализация аудио
+│   ├── metrics.py               # WER / CER
+│   ├── database.py              # SQLite (история транскрибирований)
+│   └── transcribers/
+│       ├── whisper_base.py      # Whisper Base (74 M параметров)
+│       ├── whisper_medium.py    # Whisper Medium (307 M)
+│       └── faster_whisper.py    # Faster-Whisper Large-v3
+├── templates/                   # HTML-шаблоны
+├── static/                      # CSS / JS
+├── uploads/                     # Загружаемые файлы (авто-очистка)
+└── models/                      # Кэш скачанных моделей
 ```
 
-2. **Настройте переменные окружения**
-```bash
-# Backend
-cp backend/.env.example backend/.env
-
-# Откройте backend/.env и добавьте ваши API ключи:
-nano backend/.env
-
-# Добавьте:
-OPENAI_API_KEY=sk-proj-ваш-ключ
-ANTHROPIC_API_KEY=sk-ant-api03-ваш-ключ
-GOOGLE_API_KEY=AIzaSy-ваш-ключ
-```
-
-Где получить ключи:
-- **OpenAI**: https://platform.openai.com/api-keys
-- **Anthropic**: https://console.anthropic.com/settings/keys
-- **Google AI**: https://aistudio.google.com/app/apikey
-
-3. **Запустите все сервисы**
-```bash
-docker-compose up -d
-```
-
-4. **Проверьте статус**
-```bash
-docker-compose ps
-
-# Должны быть running:
-# - postgres
-# - redis
-# - minio
-# - backend
-# - frontend
-# - worker
-```
-
-5. **Откройте в браузере**
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000/docs
-- **MinIO Console**: http://localhost:9001 (minioadmin/minioadmin)
-
-6. **Проверьте здоровье**
-```bash
-curl http://localhost:8000/health
-```
-
-### Готово! ✅
-
-Перейдите на http://localhost:3000 и попробуйте загрузить тестовое видео.
+> **Примечание:** папки `backend/`, `frontend/`, `ml_pipeline/` и файл
+> `docker-compose.yml` в этом репозитории **отсутствуют** — они не нужны.
+> Всё приложение находится прямо в корне репозитория.
 
 ---
 
-## 🔧 СПОСОБ 2: Локальная разработка (без Docker)
+## 🚀 Быстрый старт (без Docker)
 
-Используйте этот способ если хотите модифицировать код.
-
-### Требования
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-- FFmpeg
-
-### Backend Setup
+### 1. Клонируйте репозиторий
 
 ```bash
-cd backend
-
-# Виртуальное окружение
-python3.11 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Установка зависимостей
-pip install -r requirements.txt
-
-# Настройка .env
-cp .env.example .env
-# Отредактируйте .env (добавьте API ключи)
-
-# Запуск PostgreSQL и Redis (если нет локально)
-docker run -d -p 5432:5432 \
-  -e POSTGRES_DB=kazakh_translator \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  postgres:15-alpine
-
-docker run -d -p 6379:6379 redis:7-alpine
-
-# Запуск сервера
-uvicorn app.main:app --reload --port 8000
+git clone https://github.com/Mevinss/Kazakh-Audio-Translator.git
+cd Kazakh-Audio-Translator
 ```
 
-Backend доступен: http://localhost:8000
-
-### Frontend Setup
+### 2. Создайте и активируйте виртуальное окружение
 
 ```bash
-cd frontend
+# Windows
+python -m venv venv
+venv\Scripts\activate.bat
 
-# Установка зависимостей
-npm install
-
-# Настройка .env
-cp .env.example .env
-
-# Запуск dev сервера
-npm run dev
+# Linux / macOS
+python3 -m venv venv
+source venv/bin/activate
 ```
 
-Frontend доступен: http://localhost:3000
-
-### ML Pipeline Setup
+### 3. Установите Python-зависимости
 
 ```bash
-cd ml_pipeline
-
-# Установка зависимостей
 pip install -r requirements.txt
+```
 
-# Установка FFmpeg (если нет)
-# Ubuntu/Debian:
-sudo apt-get install ffmpeg
+> Установка может занять несколько минут — скачиваются PyTorch и Whisper.
 
-# macOS:
+### 4. Установите FFmpeg
+
+FFmpeg нужен для извлечения аудио из видеофайлов (mp4, avi, mkv и т. д.).
+
+**Windows**
+
+1. Перейдите на https://ffmpeg.org/download.html → Windows builds.
+2. Скачайте архив, распакуйте, например, в `C:\ffmpeg`.
+3. Добавьте `C:\ffmpeg\bin` в переменную среды `PATH`:
+   - Пуск → «Переменные среды» → `Path` → **Изменить** → **Создать** →
+     вставьте путь → **ОК**.
+4. Откройте новый терминал и проверьте: `ffmpeg -version`.
+
+**Linux (Ubuntu / Debian)**
+
+```bash
+sudo apt update && sudo apt install ffmpeg
+```
+
+**macOS**
+
+```bash
 brew install ffmpeg
-
-# Windows: https://ffmpeg.org/download.html
-
-# Запуск Jupyter Lab
-jupyter lab
 ```
 
-Jupyter Lab: http://localhost:8888
+### 5. Запустите приложение
+
+```bash
+python app.py
+```
+
+Откройте в браузере: **http://localhost:5000**
 
 ---
 
-## 🧪 Тестирование установки
+## 🖥️ Что будет при первом запуске
 
-### 1. Тест Backend API
+При первом открытии страницы и выборе модели Whisper автоматически
+скачиваются веса из интернета и сохраняются в папке `models/`:
 
-```bash
-# Health check
-curl http://localhost:8000/health
+| Модель | Размер файла | RAM |
+|--------|-------------|-----|
+| Whisper Base | ~140 МБ | ~1 ГБ |
+| Whisper Medium | ~1.4 ГБ | ~5 ГБ |
+| Faster-Whisper Large-v3 | ~3 ГБ | ~10 ГБ |
 
-# Ожидается:
-# {"status":"healthy","redis":"connected","version":"1.0.0"}
-
-# Регистрация пользователя
-curl -X POST http://localhost:8000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123",
-    "full_name": "Test User"
-  }'
-
-# Ожидается:
-# {"access_token":"eyJ...","token_type":"bearer"}
-```
-
-### 2. Тест ML Pipeline
-
-Создайте файл `test_ml.py`:
-
-```python
-import sys
-sys.path.append('ml_pipeline/modules')
-
-from audio_extractor import AudioExtractor
-from whisper_asr import WhisperASR
-
-# Тест извлечения аудио
-print("Тест 1: Audio Extractor")
-extractor = AudioExtractor()
-print("✅ AudioExtractor инициализирован")
-
-# Тест Whisper (требует GPU или займет время на CPU)
-print("\nТест 2: Whisper ASR")
-asr = WhisperASR(model_size="tiny")  # Используем tiny для быстрого теста
-print("✅ WhisperASR инициализирован")
-
-print("\n🎉 Все тесты пройдены!")
-```
-
-Запустите:
-```bash
-python test_ml.py
-```
-
-### 3. Тест с реальным видео
-
-```bash
-# Скачайте тестовое видео (или используйте свое)
-cd ml_pipeline
-python example_usage.py /path/to/your/video.mp4 standard
-```
+При последующих запусках модели загружаются с диска мгновенно.
 
 ---
 
-## 🔑 Получение API ключей
+## 🧪 Проверка установки
 
-### OpenAI (GPT-4o)
+```bash
+# Должен открыться браузер или вернуть HTML:
+curl http://localhost:5000
 
-1. Перейдите: https://platform.openai.com/
-2. Sign Up или Log In
-3. Settings → API keys
-4. Create new secret key
-5. Скопируйте ключ (показывается один раз!)
-6. Формат: `sk-proj-...`
-7. Пополните баланс минимум $5
+# Ожидается HTML главной страницы (не ошибка).
+```
 
-### Anthropic (Claude 3.5 Sonnet)
+Или просто откройте http://localhost:5000 в браузере — должна появиться
+страница загрузки файла.
 
-1. Перейдите: https://console.anthropic.com/
-2. Sign Up (нужна рабочая почта)
-3. Settings → API Keys
-4. Create Key
-5. Формат: `sk-ant-api03-...`
-6. Бесплатные $5 кредитов при регистрации
+---
 
-### Google AI (Gemini 1.5 Flash)
+## 🐳 Использование Docker (опционально)
 
-1. Перейдите: https://aistudio.google.com/
-2. Войдите через Google аккаунт
-3. Get API key → Create API key
-4. Формат: `AIzaSy...`
-5. **БЕСПЛАТНО**: 15 запросов/минуту
+Docker для этого проекта **не обязателен** — вы уже можете запустить
+приложение командой `python app.py` (см. выше).
+
+Если вы всё равно хотите использовать Docker, создайте `Dockerfile`:
+
+```dockerfile
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+EXPOSE 5000
+CMD ["python", "app.py"]
+```
+
+Сборка и запуск:
+
+```bash
+docker build -t kazakh-asr .
+docker run -p 5000:5000 kazakh-asr
+```
 
 ---
 
 ## 📊 Мониторинг и логи
 
-### Docker логи
-
 ```bash
-# Все сервисы
-docker-compose logs -f
-
-# Конкретный сервис
-docker-compose logs -f backend
-docker-compose logs -f frontend
-docker-compose logs -f worker
-
-# Последние 100 строк
-docker-compose logs --tail=100 backend
-```
-
-### Проверка ресурсов
-
-```bash
-# Использование ресурсов
-docker stats
-
-# Место на диске
-docker system df
+# Логи Flask выводятся прямо в терминал при запуске python app.py.
+# Для режима отладки:
+FLASK_DEBUG=1 python app.py      # Linux / macOS
+set FLASK_DEBUG=1 && python app.py  # Windows (cmd)
+$env:FLASK_DEBUG=1; python app.py   # Windows (PowerShell)
 ```
 
 ---
 
-## 🔄 Обновление и перезапуск
-
-### Docker
+## 🔄 Обновление
 
 ```bash
-# Остановка
-docker-compose down
-
-# Обновление образов
-docker-compose pull
-
-# Пересборка (если изменили код)
-docker-compose build
-
-# Запуск
-docker-compose up -d
-```
-
-### Локальная разработка
-
-```bash
-# Backend
-cd backend
 git pull
-pip install -r requirements.txt
-# Перезапустите uvicorn
-
-# Frontend
-cd frontend  
-git pull
-npm install
-# Перезапустите npm run dev
+pip install -r requirements.txt   # обновить зависимости, если изменились
+python app.py
 ```
 
 ---
 
 ## 🐛 Решение проблем
 
-### Проблема: Backend не запускается
+### Проблема: «Нет папки backend / frontend / ml_pipeline»
+
+Эти папки **не существуют в данном проекте**. Если вы встречали инструкцию,
+которая предлагает перейти в `cd backend` или запустить `docker-compose` —
+она описывала другой, более сложный проект. В этом репозитории всё приложение
+находится прямо в корне: `app.py`, `config.py`, `requirements.txt`.
+
+**Правильная команда запуска:**
 
 ```bash
-# Проверьте логи
-docker-compose logs backend
-
-# Типичные причины:
-# 1. PostgreSQL не готов
-docker-compose ps postgres
-
-# 2. Неверные переменные окружения
-cat backend/.env
-
-# 3. Порт 8000 занят
-lsof -i :8000
+# Из корня репозитория:
+python app.py
 ```
 
-### Проблема: Frontend ошибка "Cannot connect to API"
+---
 
-```bash
-# Проверьте backend
-curl http://localhost:8000/health
+### Проблема: «command not found: ffmpeg» или ошибка при обработке видео
 
-# Проверьте .env
-cat frontend/.env
-# Должно быть: NEXT_PUBLIC_API_URL=http://localhost:8000
+Установите FFmpeg по инструкции из раздела «Быстрый старт → Шаг 4» выше.
 
-# Перезапустите frontend
-docker-compose restart frontend
-```
+---
 
-### Проблема: "Out of memory" при Whisper
+### Проблема: «Out of memory» при Whisper
 
 ```python
-# В ml_pipeline/modules/whisper_asr.py
-# Измените на меньшую модель:
-asr = WhisperASR(model_size="medium")  # вместо large-v3
-
-# Или используйте CPU:
-asr = WhisperASR(model_size="large-v3", device="cpu")
+# Откройте modules/transcribers/whisper_medium.py и уменьшите модель:
+# Замените "medium" на "small" или "base"
 ```
+
+Или запустите только модель Whisper Base (самую лёгкую) на странице
+транскрибирования.
+
+---
 
 ### Проблема: Медленная обработка
 
 **Решения:**
-1. Используйте GPU с CUDA
-2. Уменьшите модель Whisper до "medium" или "small"
-3. Используйте качество перевода "fast" вместо "premium"
-4. Увеличьте RAM (минимум 16GB для large-v3)
+1. Выберите модель **Whisper Base** вместо Medium или Faster-Whisper Large-v3.
+2. При наличии NVIDIA-видеокарты убедитесь, что установлен CUDA-совместимый PyTorch:
+   ```bash
+   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+   ```
+3. На CPU обработка 1 минуты аудио занимает ~2–10 минут в зависимости от модели.
+
+---
 
 ### Проблема: Docker занимает слишком много места на диске C
 
-Docker со временем накапливает образы, контейнеры, тома и кэш сборок. Ниже описано, как освободить место и/или перенести данные Docker на другой диск (например, диск D на Windows).
+Docker для этого проекта не нужен. Если он уже установлен и занимает много
+места, ниже описано, как освободить место или перенести данные на другой диск.
 
-#### Шаг 1 — Проверить, сколько места занимает Docker
+#### Шаг 1 — Проверить использование
 
 ```bash
-# Сводка по всем объектам Docker
 docker system df
-
-# Пример вывода:
-# TYPE            TOTAL   ACTIVE   SIZE      RECLAIMABLE
-# Images          12      3        8.2GB     6.1GB (74%)
-# Containers      5       2        150MB     80MB (53%)
-# Local Volumes   4       2        2.3GB     1.1GB (47%)
-# Build Cache     38      0        1.5GB     1.5GB
 ```
 
 #### Шаг 2 — Освободить место (очистка)
 
 ```bash
-# Удалить остановленные контейнеры, неиспользуемые образы,
-# сети и кэш сборок одной командой:
+# Удалить остановленные контейнеры, неиспользуемые образы, сети и кэш:
 docker system prune -a
 
 # Удалить только неиспользуемые тома (ОСТОРОЖНО — данные БД!):
@@ -412,24 +249,17 @@ docker volume prune
 
 # Удалить только кэш сборок:
 docker builder prune -a
-
-# Удалить конкретный образ вручную:
-docker image rm <IMAGE_ID>
 ```
 
 > ⚠️ `docker system prune -a` удаляет **все** образы, которые не используются
-> запущенными контейнерами. Перед выполнением убедитесь, что проект остановлен:
-> `docker-compose down`.
+> запущенными контейнерами.
 
 ---
 
 #### Перенос Docker на диск D (Windows)
 
-Docker Desktop на Windows хранит все данные (образы, тома) внутри виртуального
-диска WSL 2 — файлов `ext4.vhdx`, которые по умолчанию находятся на диске C.
+Docker Desktop хранит данные внутри WSL 2 — файлов `ext4.vhdx` на диске C.
 Ниже два способа перенести их на диск D.
-
----
 
 ##### Способ А — через настройки Docker Desktop (рекомендуется)
 
@@ -439,154 +269,77 @@ Docker Desktop на Windows хранит все данные (образы, то
    например `D:\DockerData`.
 4. Нажмите **Apply & Restart**.
 
-Docker Desktop автоматически переместит виртуальный диск в новое место.
-
----
-
 ##### Способ Б — перенос через WSL 2 вручную
-
-Используйте этот способ, если Способ А недоступен или нужен полный контроль.
 
 > **Требования:** PowerShell (с правами администратора), WSL 2.
 
-**1. Остановите Docker Desktop и WSL**
-
 ```powershell
-# Закройте Docker Desktop через трей (правая кнопка → Quit Docker Desktop)
-# Затем завершите все WSL-процессы:
+# 1. Закройте Docker Desktop (трей → Quit Docker Desktop), остановите WSL:
 wsl --shutdown
-```
 
-**2. Проверьте список дистрибутивов WSL**
-
-```powershell
+# 2. Убедитесь, что дистрибутивы видны:
 wsl --list --verbose
 
-# Пример вывода:
-#   NAME                   STATE           VERSION
-# * Ubuntu                 Running         2
-#   docker-desktop         Stopped         2
-#   docker-desktop-data    Stopped         2
-```
-
-Docker использует два скрытых дистрибутива:
-- `docker-desktop` — системные файлы Docker
-- `docker-desktop-data` — образы, тома, контейнеры (занимает больше всего места)
-
-**3. Создайте целевую папку на диске D**
-
-```powershell
+# 3. Создайте папки на диске D:
 New-Item -ItemType Directory -Path "D:\DockerWSL\data"
 New-Item -ItemType Directory -Path "D:\DockerWSL\desktop"
-```
 
-**4. Экспортируйте дистрибутивы в tar-файлы**
-
-```powershell
+# 4. Экспортируйте дистрибутивы:
 wsl --export docker-desktop-data "D:\DockerWSL\docker-desktop-data.tar"
 wsl --export docker-desktop      "D:\DockerWSL\docker-desktop.tar"
-```
 
-**5. Удалите старые дистрибутивы с диска C**
-
-```powershell
+# 5. Удалите с диска C:
 wsl --unregister docker-desktop-data
 wsl --unregister docker-desktop
-```
 
-**6. Импортируйте дистрибутивы в новое расположение на диске D**
-
-```powershell
+# 6. Импортируйте на диск D:
 wsl --import docker-desktop-data "D:\DockerWSL\data"    "D:\DockerWSL\docker-desktop-data.tar" --version 2
 wsl --import docker-desktop      "D:\DockerWSL\desktop" "D:\DockerWSL\docker-desktop.tar"      --version 2
-```
 
-**7. Запустите Docker Desktop**
+# 7. Запустите Docker Desktop — данные теперь на диске D.
 
-Откройте Docker Desktop как обычно. Все данные теперь будут читаться с диска D.
-
-**8. Проверьте результат**
-
-```powershell
-wsl --list --verbose
-# docker-desktop и docker-desktop-data должны отображаться как Stopped/Running
-
-docker info | Select-String "Docker Root Dir"
-# Должно показать путь внутри WSL на диске D
-```
-
-**9. (Опционально) Удалите временные tar-файлы**
-
-```powershell
+# 8. Удалите временные tar-файлы:
 Remove-Item "D:\DockerWSL\docker-desktop-data.tar"
 Remove-Item "D:\DockerWSL\docker-desktop.tar"
 ```
 
 ---
 
-#### Перенос Docker на другой диск (Linux)
+#### Ограничение размера виртуального диска WSL 2
 
-На Linux данные Docker хранятся в `/var/lib/docker`. Чтобы перенести их на
-другой раздел или диск:
-
-```bash
-# 1. Остановите Docker
-sudo systemctl stop docker
-
-# 2. Скопируйте данные на новый диск (например, /mnt/data/docker)
-sudo rsync -aP /var/lib/docker/ /mnt/data/docker/
-
-# 3. Отредактируйте /etc/docker/daemon.json
-sudo nano /etc/docker/daemon.json
-```
-
-Добавьте или измените параметр `data-root`:
-
-```json
-{
-  "data-root": "/mnt/data/docker"
-}
-```
-
-```bash
-# 4. Запустите Docker и проверьте
-sudo systemctl start docker
-docker info | grep "Docker Root Dir"
-# Должно вывести: Docker Root Dir: /mnt/data/docker
-
-# 5. После проверки удалите старую папку
-sudo rm -rf /var/lib/docker
-```
-
----
-
-#### Настройка лимита размера виртуального диска WSL 2 (Windows)
-
-По умолчанию WSL 2 позволяет виртуальному диску расти до 1 ТБ. Чтобы ограничить
-максимальный размер, создайте (или отредактируйте) файл `%USERPROFILE%\.wslconfig`:
+Создайте (или отредактируйте) файл `%USERPROFILE%\.wslconfig`:
 
 ```ini
 [wsl2]
-# Максимальный размер виртуального диска для WSL 2 (например, 60 ГБ)
 diskSizeGB=60
 ```
 
-После сохранения выполните:
+Затем выполните `wsl --shutdown` и перезапустите Docker Desktop.
 
-```powershell
-wsl --shutdown
+---
+
+#### Перенос Docker на другой диск (Linux)
+
+```bash
+sudo systemctl stop docker
+sudo rsync -aP /var/lib/docker/ /mnt/data/docker/
+
+# В /etc/docker/daemon.json добавьте:
+# { "data-root": "/mnt/data/docker" }
+
+sudo systemctl start docker
+docker info | grep "Docker Root Dir"
+sudo rm -rf /var/lib/docker   # только после проверки
 ```
-
-и перезапустите Docker Desktop.
 
 ---
 
 ## 📚 Дополнительные ресурсы
 
-- **API документация**: http://localhost:8000/docs
-- **Jupyter notebooks**: `ml_pipeline/notebooks/`
-- **Примеры использования**: `ml_pipeline/example_usage.py`
 - **README**: см. README.md в корне проекта
+- **Whisper документация**: https://github.com/openai/whisper
+- **Faster-Whisper**: https://github.com/SYSTRAN/faster-whisper
+- **FFmpeg**: https://ffmpeg.org/documentation.html
 
 ---
 
@@ -594,9 +347,9 @@ wsl --shutdown
 
 Если возникли проблемы:
 
-1. Проверьте логи: `docker-compose logs`
-2. Изучите документацию в README.md
-3. Откройте issue на GitHub
+1. Убедитесь, что запускаете `python app.py` из корня репозитория.
+2. Проверьте, что активировано виртуальное окружение (`venv`).
+3. Откройте issue на GitHub.
 4. Email: support@kazakh-translator.com
 5. Telegram: @kazakh_translator
 
@@ -606,20 +359,22 @@ wsl --shutdown
 
 Перед использованием убедитесь:
 
-- [ ] Все сервисы запущены (`docker-compose ps`)
-- [ ] Health check проходит (`curl localhost:8000/health`)
-- [ ] API ключи добавлены в `backend/.env`
-- [ ] Frontend открывается (http://localhost:3000)
-- [ ] Можете зарегистрироваться и войти
-- [ ] Тестовая загрузка файла работает
+- [ ] Python 3.9+ установлен (`python --version`)
+- [ ] Виртуальное окружение активировано
+- [ ] Зависимости установлены (`pip install -r requirements.txt`)
+- [ ] FFmpeg установлен (`ffmpeg -version`)
+- [ ] Приложение запущено (`python app.py`)
+- [ ] Страница открывается (http://localhost:5000)
 
 ---
 
 ## 🎉 Готово к использованию!
 
 Теперь вы можете:
-1. Загрузить казахское видео на http://localhost:3000
-2. Получить автоматический перевод и субтитры
-3. Скачать результаты в формате SRT, VTT, ASS
+1. Открыть http://localhost:5000
+2. Загрузить казахский аудио- или видеофайл
+3. Выбрать одну или несколько ASR-моделей для сравнения
+4. Получить транскрипцию с метриками WER/CER
+5. Экспортировать историю в CSV
 
 Удачи! 🚀
