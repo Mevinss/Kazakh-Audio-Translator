@@ -16,7 +16,17 @@ class WhisperMediumTranscriber(BaseTranscriber):
 
     def _load_model(self):
         if self._model is None:
-            import whisper
+            try:
+                import whisper
+            except ImportError as e:
+                logger.error(
+                    "Failed to import 'whisper'. Make sure 'openai-whisper' is installed: "
+                    "pip install openai-whisper. Original error: %s", e
+                )
+                raise ImportError(
+                    "Модуль 'whisper' табылмады. 'openai-whisper' орнатыңыз: "
+                    "pip install openai-whisper"
+                ) from e
             logger.info("Loading Whisper %s model…", self.MODEL_SIZE)
             self._model = whisper.load_model(self.MODEL_SIZE)
             logger.info("Whisper %s model loaded.", self.MODEL_SIZE)
