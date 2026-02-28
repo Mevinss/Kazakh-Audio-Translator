@@ -117,6 +117,8 @@ class KazakhNormalizer:
         words = text.split()
         corrected = []
         for word in words:
+            if not word:
+                continue
             lower = word.lower()
             if lower in _SPELLING_CORRECTIONS:
                 replacement = _SPELLING_CORRECTIONS[lower]
