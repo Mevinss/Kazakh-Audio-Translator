@@ -1,175 +1,85 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="kk">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kazakh ASR – Главная</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kazakh ASR | Қазақша мультимедиа аудармашы</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="/">🎙️ Kazakh ASR Comparison</a>
-    <div>
-      <a class="btn btn-outline-light btn-sm" href="/history">История</a>
+<body class="bg-slate-50 text-slate-900">
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <a href="/" class="font-semibold text-lg">🎙️ Kazakh ASR зерттеу платформасы</a>
+      <a href="/history" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded">Тарих</a>
     </div>
-  </div>
-</nav>
+  </header>
 
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-        {{ msg }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
-
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-          <h4 class="mb-0">Транскрибирование казахского аудио/видео</h4>
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="rounded border px-4 py-3 {% if cat == 'danger' %}bg-red-50 border-red-200 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-amber-200 text-amber-700{% else %}bg-sky-50 border-sky-200 text-sky-700{% endif %}">
+          {{ msg }}
         </div>
-        <div class="card-body">
-          <form method="POST" action="/transcribe" enctype="multipart/form-data" id="transcribeForm">
+      {% endfor %}
+    {% endwith %}
 
-            <!-- Drag-and-drop file upload zone -->
-            <div id="dropZone" class="drop-zone mb-4">
-              <div class="drop-zone__prompt">
-                <span class="fs-1">📂</span><br>
-                Перетащите файл сюда или кликните для выбора<br>
-                <small class="text-muted">Поддерживаются: MP3, WAV, OGG, FLAC, M4A, MP4, AVI, MKV, MOV, WEBM (до 500 МБ)</small>
-              </div>
-              <input type="file" name="file" id="fileInput" class="drop-zone__input"
-                     accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm" required>
-            </div>
+    <section class="bg-white rounded-xl shadow p-6">
+      <h1 class="text-2xl font-bold mb-2">Қазақ тілді мультимедиалық ағындарды талдау</h1>
+      <p class="text-slate-600 mb-6">Файл жүктеп, үш модельдің ASR/аударма нәтижелерін салыстырыңыз.</p>
 
-            <!-- Model selection -->
-            <div class="mb-4">
-              <label class="form-label fw-bold">Выберите модели для сравнения:</label>
-              {% for key, name in models.items() %}
-              <div class="form-check">
-                <input class="form-check-input model-check" type="checkbox" name="models"
-                       value="{{ key }}" id="model_{{ key }}" checked>
-                <label class="form-check-label" for="model_{{ key }}">{{ name }}</label>
-              </div>
+      <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y-5">
+        <div>
+          <label for="fileInput" class="block text-sm font-medium mb-2">Аудио/видео файлды жүктеу</label>
+          <input id="fileInput" name="file" required type="file"
+                 accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm"
+                 class="block w-full text-sm border rounded-lg p-3 bg-slate-50">
+        </div>
+
+        <div>
+          <p class="block text-sm font-medium mb-2">Модельдер</p>
+          <div class="space-y-2">
+            {% for key, name in models.items() %}
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" class="rounded" name="models" value="{{ key }}" checked>
+              <span>{{ name }}</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label for="sourceLang" class="block text-sm font-medium mb-2">Кіріс тіл</label>
+            <select id="sourceLang" name="source_language" class="w-full border rounded-lg p-3 bg-white">
+              {% for code, label in source_languages.items() %}
+              <option value="{{ code }}" {% if code == 'kk' %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
-            </div>
-
-            <!-- Source language -->
-            <div class="mb-4">
-              <label for="sourceLang" class="form-label fw-bold">Язык аудио/видео:</label>
-              <select class="form-select" name="source_language" id="sourceLang">
-                {% for code, label in source_languages.items() %}
-                <option value="{{ code }}" {% if code == 'kk' %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-
-            <!-- Translate to Kazakh (shown only for non-Kazakh source) -->
-            <div class="mb-4" id="translateSection" style="display:none;">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="translate_to_kk"
-                       id="translateCheck" value="1">
-                <label class="form-check-label fw-semibold" for="translateCheck">
-                  🌐 Перевести на казахский
-                  <small class="text-muted fw-normal">(машинный перевод EN→KK / RU→KK,
-                    Helsinki-NLP MarianMT)</small>
-                </label>
-              </div>
-            </div>
-
-            <!-- Optional reference text -->
-            <div class="mb-4">
-              <label for="reference" class="form-label fw-bold">
-                Референсный текст <small class="text-muted">(опционально, для расчёта WER/CER)</small>
-              </label>
-              <textarea class="form-control" id="reference" name="reference" rows="3"
-                        placeholder="Введите эталонный текст для сравнения с результатами транскрибирования…"></textarea>
-            </div>
-
-            <!-- Submit -->
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                🔄 Транскрибировать
-              </button>
-            </div>
-
-          </form>
+            </select>
+          </div>
+          <div>
+            <label for="reference" class="block text-sm font-medium mb-2">Референс мәтін (WER/BLEU үшін)</label>
+            <textarea id="reference" name="reference" rows="3"
+                      class="w-full border rounded-lg p-3"
+                      placeholder="Эталон мәтінді енгізіңіз (міндетті емес)"></textarea>
+          </div>
         </div>
-      </div>
 
-      <!-- Info panel -->
-      <div class="card mt-4 shadow-sm">
-        <div class="card-header">ℹ️ Описание моделей</div>
-        <div class="card-body p-0">
-          <table class="table mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Модель</th>
-                <th>Параметры</th>
-                <th>Скорость</th>
-                <th>Точность</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Whisper Base</strong></td>
-                <td>74 M</td>
-                <td>⚡⚡⚡</td>
-                <td>⭐⭐⭐ (~80%)</td>
-              </tr>
-              <tr>
-                <td><strong>Whisper Medium</strong></td>
-                <td>307 M</td>
-                <td>⚡⚡</td>
-                <td>⭐⭐⭐⭐ (~85%)</td>
-              </tr>
-              <tr>
-                <td><strong>Faster-Whisper Large-v3</strong></td>
-                <td>1 550 M (int8)</td>
-                <td>⚡⚡</td>
-                <td>⭐⭐⭐⭐⭐ (90%+)</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="apply_denoise" value="1" class="rounded">
+            <span>Шуды тазарту (denoising) қосу</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="apply_normalization" value="1" class="rounded" checked>
+            <span>Қазақша нормализацияны қолдану</span>
+          </label>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- Loading overlay -->
-<div id="loadingOverlay" class="loading-overlay d-none">
-  <div class="text-center text-white">
-    <div class="spinner-border mb-3" style="width:3rem;height:3rem;" role="status"></div>
-    <h5>Идёт транскрибирование…</h5>
-    <p class="text-white-50">Это может занять несколько минут в зависимости от размера файла и модели.</p>
-    <p class="text-warning small mt-2">
-      ⚠️ При <strong>первом запуске</strong> модели загружаются автоматически:<br>
-      Whisper Base ~74 МБ &nbsp;·&nbsp; Whisper Medium ~307 МБ &nbsp;·&nbsp; Faster-Whisper Large-v3 ~1.5 ГБ<br>
-      Пожалуйста, <strong>не закрывайте страницу</strong> — загрузка может занять <strong>30+ минут</strong>.
-    </p>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
-<script>
-  // Show "Translate to Kazakh" option only when a non-Kazakh source is selected
-  (function () {
-    var sel = document.getElementById('sourceLang');
-    var sect = document.getElementById('translateSection');
-    function updateVisibility() {
-      var lang = sel.value;
-      sect.style.display = (lang === 'kk') ? 'none' : 'block';
-    }
-    sel.addEventListener('change', updateVisibility);
-    updateVisibility();
-  }());
-</script>
+        <button type="submit" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
+          Нәтижені салыстыру
+        </button>
+      </form>
+    </section>
+  </main>
 </body>
 </html>

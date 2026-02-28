@@ -1,94 +1,52 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="kk">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kazakh ASR – История</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тарих</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="/">🎙️ Kazakh ASR Comparison</a>
-    <div>
-      <a class="btn btn-outline-light btn-sm" href="/">← Главная</a>
+<body class="bg-slate-50">
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Транскрипция тарихы</h1>
+      <a href="/" class="text-blue-700 underline">Басты бетке оралу</a>
     </div>
-  </div>
-</nav>
 
-<div class="container">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4>🗂️ История транскрибирований</h4>
-    <a href="/export" class="btn btn-outline-success btn-sm">⬇ Экспортировать всё (CSV)</a>
-  </div>
-
-  {% if records %}
-  <div class="card shadow-sm">
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0" id="historyTable">
-          <thead class="table-dark">
-            <tr>
-              <th>#</th>
-              <th>Файл</th>
-              <th>Модель</th>
-              <th>WER ↓</th>
-              <th>CER ↓</th>
-              <th>Длительность</th>
-              <th>Confidence ↑</th>
-              <th>Дата</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in records %}
-            <tr>
-              <td>{{ r.id }}</td>
-              <td class="text-truncate" style="max-width:180px" title="{{ r.filename }}">
-                {{ r.filename }}
-              </td>
-              <td>{{ model_names.get(r.model, r.model) }}</td>
-              <td>
-                {% if r.wer is not none %}
-                  <span class="badge {% if r.wer < 0.15 %}bg-success{% elif r.wer < 0.30 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                    {{ "%.1f"|format(r.wer * 100) }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-              <td>
-                {% if r.cer is not none %}
-                  <span class="badge {% if r.cer < 0.10 %}bg-success{% elif r.cer < 0.20 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                    {{ "%.1f"|format(r.cer * 100) }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-              <td>{{ r.duration }}s</td>
-              <td>
-                {% if r.confidence %}
-                  {{ "%.0f"|format(r.confidence * 100) }}%
-                {% else %}—{% endif %}
-              </td>
-              <td><small>{{ r.created_at }}</small></td>
-              <td>
-                <a href="/results/{{ r.id }}" class="btn btn-sm btn-outline-primary">👁</a>
-                <a href="/export/{{ r.id }}" class="btn btn-sm btn-outline-secondary">⬇</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+    {% if records %}
+    <div class="bg-white rounded-xl shadow overflow-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="p-2 text-left">ID</th>
+            <th class="p-2 text-left">Файл</th>
+            <th class="p-2 text-left">Модель</th>
+            <th class="p-2 text-left">WER</th>
+            <th class="p-2 text-left">BLEU</th>
+            <th class="p-2 text-left">Күні</th>
+            <th class="p-2 text-left">Әрекет</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in records %}
+          <tr class="border-t">
+            <td class="p-2">{{ r.id }}</td>
+            <td class="p-2">{{ r.filename }}</td>
+            <td class="p-2">{{ model_names.get(r.model, r.model) }}</td>
+            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
+            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
+            <td class="p-2">{{ r.created_at }}</td>
+            <td class="p-2">
+              <a class="text-blue-700 underline" href="/results/{{ r.id }}">Көру</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </div>
-  {% else %}
-  <div class="alert alert-info">
-    Нет записей. <a href="/">Загрузите первый файл</a>.
-  </div>
-  {% endif %}
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% else %}
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">Әзірге жазба жоқ.</div>
+    {% endif %}
+  </main>
 </body>
 </html>

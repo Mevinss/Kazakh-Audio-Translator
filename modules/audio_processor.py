@@ -56,7 +56,27 @@ class AudioProcessor:
             logger.error("FFmpeg normalization error: %s", exc.stderr.decode())
             raise RuntimeError(f"Audio normalization failed: {exc.stderr.decode()}") from exc
 
-    def prepare_audio(self, input_path: str) -> str:
+    def denoise_audio(self, audio_path: str) -> str:
+        """Apply basic FFmpeg denoising."""
+        base, _ = os.path.splitext(audio_path)
+        output_path = base + '_denoised.wav'
+        cmd = [
+            'ffmpeg', '-y', '-i', audio_path,
+            '-af', 'afftdn',
+            '-acodec', 'pcm_s16le',
+            '-ar', str(self.SAMPLE_RATE),
+            '-ac', '1',
+            output_path
+        ]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True)
+            logger.info("Denoised audio to %s", output_path)
+            return output_path
+        except subprocess.CalledProcessError as exc:
+            logger.warning("FFmpeg denoise error, using normalized audio: %s", exc.stderr.decode())
+            return audio_path
+
+    def prepare_audio(self, input_path: str, denoise: bool = False) -> str:
         """Full pipeline: extract audio (if needed) and normalize it.
 
         If normalization produces an empty or missing file it falls back to the
@@ -72,14 +92,15 @@ class AudioProcessor:
             audio_path = input_path
 
         normalized = self.normalize_audio(audio_path)
+        prepared = self.denoise_audio(normalized) if denoise else normalized
 
         # Guard against ffmpeg producing a zero-byte or missing output file,
         # which would make every model return empty text silently.
-        if not os.path.isfile(normalized) or os.path.getsize(normalized) == 0:
+        if not os.path.isfile(prepared) or os.path.getsize(prepared) == 0:
             logger.warning(
                 "Normalized file is missing or empty (%s); falling back to %s",
-                normalized, audio_path,
+                prepared, audio_path,
             )
             return audio_path
 
-        return normalized
+        return prepared

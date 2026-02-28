@@ -57,6 +57,10 @@ class TestMetrics(unittest.TestCase):
         from modules.metrics import calculate_cer
         self.assertIsNone(calculate_cer("", ""))
 
+    def test_bleu_empty_input(self):
+        from modules.metrics import calculate_bleu
+        self.assertIsNone(calculate_bleu("", "мәтін"))
+
 
 # ---------------------------------------------------------------------------
 # Database tests
@@ -280,6 +284,20 @@ class TestConfig(unittest.TestCase):
         self.assertIn('mp4', config.ALLOWED_EXTENSIONS)
         self.assertNotIn('txt', config.ALLOWED_EXTENSIONS)
 
+    def test_research_model_keys_defined(self):
+        import config
+        self.assertIn('faster_whisper_nllb', config.MODEL_DISPLAY_NAMES)
+        self.assertIn('whisper_large_v3', config.MODEL_DISPLAY_NAMES)
+        self.assertIn('seamless_m4t', config.MODEL_DISPLAY_NAMES)
+
+
+class TestNormalizer(unittest.TestCase):
+    def test_rule_based_normalizer(self):
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm.normalize('  сәлем әлем  ', use_llm=False)
+        self.assertEqual(text, 'Сәлем әлем.')
+
 
 # ---------------------------------------------------------------------------
 # AudioProcessor tests (mocked FFmpeg)
@@ -501,7 +519,7 @@ class TestCyrillicFilenameHandling(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         # Warning banner must appear on the page
-        self.assertIn('вернули пустой результат', response.get_data(as_text=True))
+        self.assertIn('Барлық модель бос нәтиже қайтарды', response.get_data(as_text=True))
 
 
 

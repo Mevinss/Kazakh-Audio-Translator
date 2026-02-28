@@ -1,223 +1,70 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="kk">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kazakh ASR – Результаты</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Нәтижелер</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<nav class="navbar navbar-dark bg-dark mb-4">
-  <div class="container">
-    <a class="navbar-brand" href="/">🎙️ Kazakh ASR Comparison</a>
-    <div>
-      <a class="btn btn-outline-light btn-sm" href="/history">История</a>
-    </div>
-  </div>
-</nav>
-
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
-        {{ msg }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+<body class="bg-slate-50 text-slate-900">
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <a href="/" class="font-semibold">🎙️ Нәтиже салыстыру</a>
+      <div class="flex gap-2">
+        <a href="/" class="bg-slate-700 px-3 py-2 rounded text-sm">Жаңа файл</a>
+        <a href="/history" class="bg-slate-700 px-3 py-2 rounded text-sm">Тарих</a>
       </div>
-    {% endfor %}
-  {% endwith %}
-
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4>📊 Результаты: <span class="text-primary">{{ filename }}</span></h4>
-    <div>
-      <a href="/" class="btn btn-outline-secondary btn-sm me-2">← Новый файл</a>
-      <a href="/export" class="btn btn-outline-success btn-sm">⬇ Экспорт CSV</a>
     </div>
-  </div>
+  </header>
 
-  <!-- Comparison table -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-header fw-bold">Сравнительная таблица</div>
-    <div class="card-body p-0">
-      <table class="table table-striped mb-0">
-        <thead class="table-dark">
+  <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="rounded border px-4 py-3 {% if cat == 'danger' %}bg-red-50 border-red-200 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-amber-200 text-amber-700{% else %}bg-sky-50 border-sky-200 text-sky-700{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endwith %}
+
+    <section class="bg-white rounded-xl shadow p-4 overflow-auto">
+      <h1 class="text-xl font-bold mb-4">Файл: {{ filename }}</h1>
+      <table class="min-w-full text-sm">
+        <thead class="bg-slate-100">
           <tr>
-            <th>Модель</th>
-            <th>WER ↓</th>
-            <th>CER ↓</th>
-            <th>Длительность</th>
-            <th>Confidence ↑</th>
-            <th>Время обработки</th>
+            <th class="text-left p-2">Модель атауы</th>
+            <th class="text-left p-2">Транскрипция (ASR)</th>
+            <th class="text-left p-2">Қазақша аударма (MT)</th>
+            <th class="text-left p-2">Өңдеу уақыты</th>
+            <th class="text-left p-2">WER</th>
+            <th class="text-left p-2">BLEU</th>
+            <th class="text-left p-2">Субтитр</th>
           </tr>
         </thead>
         <tbody>
           {% for r in results %}
-          <tr>
-            <td><strong>{{ r.model_name }}</strong></td>
-            <td>
-              {% if r.wer is not none %}
-                <span class="badge {% if r.wer < 0.15 %}bg-success{% elif r.wer < 0.30 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                  {{ "%.1f"|format(r.wer * 100) }}%
-                </span>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if r.cer is not none %}
-                <span class="badge {% if r.cer < 0.10 %}bg-success{% elif r.cer < 0.20 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
-                  {{ "%.1f"|format(r.cer * 100) }}%
-                </span>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>{{ r.duration }}s</td>
-            <td>
-              <div class="progress" style="min-width:80px">
-                <div class="progress-bar {% if r.confidence > 0.7 %}bg-success{% elif r.confidence > 0.4 %}bg-warning{% else %}bg-danger{% endif %}"
-                     style="width:{{ (r.confidence * 100)|int }}%">
-                  {{ "%.0f"|format(r.confidence * 100) }}%
-                </div>
-              </div>
-            </td>
-            <td>
-              {% if r.processing_time is not none %}
-                {{ r.processing_time }}s
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
+          <tr class="border-t align-top">
+            <td class="p-2 font-medium">{{ r.model_name }}</td>
+            <td class="p-2 whitespace-pre-wrap">{{ r.text or '—' }}</td>
+            <td class="p-2 whitespace-pre-wrap">{{ r.translation or '—' }}</td>
+            <td class="p-2">{{ r.processing_time if r.processing_time is not none else '—' }} сек</td>
+            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
+            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
+            <td class="p-2">
+              {% if r.subtitle_file %}
+              <a class="text-blue-600 underline" href="/subtitles/{{ r.subtitle_file }}">.srt жүктеу</a>
+              {% else %}—{% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
-  </div>
+    </section>
 
-  {% if reference %}
-  <div class="alert alert-info">
-    <strong>Референсный текст:</strong> {{ reference }}
-  </div>
-  {% endif %}
-
-  <!-- Tabs for each model's transcription -->
-  <div class="card shadow-sm">
-    <div class="card-header fw-bold">Транскрипции</div>
-    <div class="card-body">
-      {% if results|length > 1 %}
-      <ul class="nav nav-tabs" id="resultTabs">
-        {% for r in results %}
-        <li class="nav-item">
-          <button class="nav-link {% if loop.first %}active{% endif %}"
-                  data-bs-toggle="tab"
-                  data-bs-target="#tab_{{ loop.index }}">
-            {{ r.model_name }}
-          </button>
-        </li>
-        {% endfor %}
-      </ul>
-      <div class="tab-content pt-3" id="resultTabContent">
-        {% for r in results %}
-        <div class="tab-pane fade {% if loop.first %}show active{% endif %}"
-             id="tab_{{ loop.index }}">
-          {% if r.detected_language and r.detected_language != 'kk' %}
-          <div class="alert alert-secondary py-1 small mb-2">
-            🌍 Определён язык:
-            <strong>{{ language_names.get(r.detected_language, r.detected_language) }}</strong>
-          </div>
-          {% endif %}
-          <div class="d-flex justify-content-end mb-2">
-            <a href="/export/{{ r.id }}" class="btn btn-outline-secondary btn-sm">⬇ CSV</a>
-          </div>
-          {% if r.segments %}
-            <div class="segments-container">
-              {% for seg in r.segments %}
-              <div class="segment-item">
-                <span class="segment-time text-muted small">[{{ "%.1f"|format(seg.start) }}s – {{ "%.1f"|format(seg.end) }}s]</span>
-                <span class="segment-text ms-2">{{ seg.text }}</span>
-              </div>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="transcription-text p-3 bg-light rounded">
-              {% if r.text and r.text.startswith('Error:') %}
-                <span class="text-danger">{{ r.text }}</span>
-              {% elif r.text %}
-                {{ r.text }}
-              {% else %}
-                <span class="text-muted fst-italic">
-                  ⚠️ Модель не вернула текст.
-                  Возможные причины: в аудио нет речи, модель ещё загружается,
-                  или FFmpeg не установлен.
-                  Проверьте, что файл содержит чёткую речь на выбранном языке.
-                </span>
-              {% endif %}
-            </div>
-          {% endif %}
-          {% if r.translation %}
-          <div class="mt-3">
-            <h6 class="text-success">🌐 Перевод на казахский (машинный перевод):</h6>
-            <div class="p-3 border border-success rounded bg-light">
-              {{ r.translation }}
-            </div>
-          </div>
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-        {% for r in results %}
-        {% if r.detected_language and r.detected_language != 'kk' %}
-        <div class="alert alert-secondary py-1 small mb-2">
-          🌍 Определён язык:
-          <strong>{{ language_names.get(r.detected_language, r.detected_language) }}</strong>
-        </div>
-        {% endif %}
-        <div class="d-flex justify-content-between mb-2">
-          <h6>{{ r.model_name }}</h6>
-          <a href="/export/{{ r.id }}" class="btn btn-outline-secondary btn-sm">⬇ CSV</a>
-        </div>
-        {% if r.segments %}
-          <div class="segments-container">
-            {% for seg in r.segments %}
-            <div class="segment-item">
-              <span class="segment-time text-muted small">[{{ "%.1f"|format(seg.start) }}s – {{ "%.1f"|format(seg.end) }}s]</span>
-              <span class="segment-text ms-2">{{ seg.text }}</span>
-            </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="transcription-text p-3 bg-light rounded">
-            {% if r.text and r.text.startswith('Error:') %}
-              <span class="text-danger">{{ r.text }}</span>
-            {% elif r.text %}
-              {{ r.text }}
-            {% else %}
-              <span class="text-muted fst-italic">
-                ⚠️ Модель не вернула текст.
-                Возможные причины: в аудио нет речи, модель ещё загружается,
-                или FFmpeg не установлен.
-                Проверьте, что файл содержит чёткую речь на выбранном языке.
-              </span>
-            {% endif %}
-          </div>
-        {% endif %}
-        {% if r.translation %}
-        <div class="mt-3">
-          <h6 class="text-success">🌐 Перевод на казахский (машинный перевод):</h6>
-          <div class="p-3 border border-success rounded bg-light">
-            {{ r.translation }}
-          </div>
-        </div>
-        {% endif %}
-        {% endfor %}
-      {% endif %}
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% if reference %}
+    <section class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm">
+      <strong>Референс:</strong> {{ reference }}
+    </section>
+    {% endif %}
+  </main>
 </body>
 </html>
