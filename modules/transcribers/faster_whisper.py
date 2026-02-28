@@ -5,6 +5,19 @@ from modules.transcribers.base_transcriber import BaseTranscriber
 
 logger = logging.getLogger(__name__)
 
+# Check if faster_whisper module is available
+try:
+    from faster_whisper import WhisperModel
+    FASTER_WHISPER_AVAILABLE = True
+except ImportError:
+    FASTER_WHISPER_AVAILABLE = False
+    # WhisperModel not used when FASTER_WHISPER_AVAILABLE is False
+    # The _load_model method checks the flag before using WhisperModel
+    logger.warning(
+        "faster-whisper модулі орнатылмаған. "
+        "Орнату үшін: pip install faster-whisper"
+    )
+
 
 class FasterWhisperTranscriber(BaseTranscriber):
     """Transcriber using CTranslate2-based Faster-Whisper large-v3 model."""
@@ -16,7 +29,11 @@ class FasterWhisperTranscriber(BaseTranscriber):
 
     def _load_model(self):
         if self._model is None:
-            from faster_whisper import WhisperModel
+            if not FASTER_WHISPER_AVAILABLE:
+                raise ImportError(
+                    "faster-whisper модулі орнатылмаған. "
+                    "Орнату үшін: pip install faster-whisper"
+                )
             logger.info("Loading Faster-Whisper %s model…", self.MODEL_SIZE)
             self._model = WhisperModel(
                 self.MODEL_SIZE,

@@ -181,6 +181,26 @@ python app.py
 
 ## 🐛 Решение проблем
 
+### Проблема: «No module named 'whisper'» или «No module named 'faster_whisper'»
+
+Это означает, что модули Whisper не установлены. Установите их:
+
+```bash
+# Активируйте виртуальное окружение:
+# Windows: venv\Scripts\activate.bat
+# Linux/macOS: source venv/bin/activate
+
+# Установите зависимости:
+pip install openai-whisper faster-whisper
+
+# Или установите все зависимости из requirements.txt:
+pip install -r requirements.txt
+```
+
+> ⚠️ Убедитесь, что виртуальное окружение активировано перед установкой!
+
+---
+
 ### Проблема: «Нет папки backend / frontend / ml_pipeline»
 
 Эти папки **не существуют в данном проекте**. Если вы встречали инструкцию,

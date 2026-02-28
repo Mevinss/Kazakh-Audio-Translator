@@ -5,6 +5,17 @@ from modules.transcribers.base_transcriber import BaseTranscriber
 
 logger = logging.getLogger(__name__)
 
+# Check if whisper module is available
+try:
+    import whisper
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+    logger.warning(
+        "openai-whisper модулі орнатылмаған. "
+        "Орнату үшін: pip install openai-whisper"
+    )
+
 
 class WhisperMediumTranscriber(BaseTranscriber):
     """Transcriber using OpenAI Whisper medium model."""
@@ -16,7 +27,11 @@ class WhisperMediumTranscriber(BaseTranscriber):
 
     def _load_model(self):
         if self._model is None:
-            import whisper
+            if not WHISPER_AVAILABLE:
+                raise ImportError(
+                    "openai-whisper модулі орнатылмаған. "
+                    "Орнату үшін: pip install openai-whisper"
+                )
             logger.info("Loading Whisper %s model…", self.MODEL_SIZE)
             self._model = whisper.load_model(self.MODEL_SIZE)
             logger.info("Whisper %s model loaded.", self.MODEL_SIZE)
