@@ -53,17 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
   if (form) {
     form.addEventListener('submit', e => {
       // Ensure at least one model is checked
-      const checked = form.querySelectorAll('.model-check:checked');
+      const checked = form.querySelectorAll('input[name="models"]:checked');
       if (checked.length === 0) {
         e.preventDefault();
-        alert('Пожалуйста, выберите хотя бы одну модель.');
+        alert('Кемінде бір модель таңдаңыз.');
         return;
       }
       // Show loading state
       if (loadingOverlay) loadingOverlay.classList.remove('d-none');
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Обработка…';
+        submitBtn.textContent = '⏳ Өңделуде…';
       }
     });
   }
@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterInput = document.createElement('input');
     filterInput.type = 'text';
     filterInput.className = 'form-control form-control-sm mb-2';
-    filterInput.placeholder = 'Фильтр по имени файла…';
+    filterInput.placeholder = 'Файл атауы бойынша іздеу…';
     historyTable.parentElement.insertBefore(filterInput, historyTable);
 
     filterInput.addEventListener('input', () => {

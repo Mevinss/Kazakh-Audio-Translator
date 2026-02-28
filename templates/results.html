@@ -3,68 +3,139 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Нәтижелер</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Нәтижелер | Қазақ ASR</title>
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <header class="bg-slate-900 text-white">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-      <a href="/" class="font-semibold">🎙️ Нәтиже салыстыру</a>
-      <div class="flex gap-2">
-        <a href="/" class="bg-slate-700 px-3 py-2 rounded text-sm">Жаңа файл</a>
-        <a href="/history" class="bg-slate-700 px-3 py-2 rounded text-sm">Тарих</a>
-      </div>
+<body>
+  <header class="site-header">
+    <div class="inner" style="max-width:1200px;">
+      <a href="/" class="brand">
+        <span class="icon">📊</span>
+        <span>Нәтижелер салыстыру</span>
+      </a>
+      <nav>
+        <a href="/">Жаңа файл</a>
+        <a href="/history">Тарих</a>
+      </nav>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+  <main class="container-lg" style="padding-top:2.5rem;padding-bottom:2.5rem;">
+    <div class="space-y-lg">
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
-        <div class="rounded border px-4 py-3 {% if cat == 'danger' %}bg-red-50 border-red-200 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-amber-200 text-amber-700{% else %}bg-sky-50 border-sky-200 text-sky-700{% endif %}">
+        <div class="flash {% if cat == 'danger' %}flash-danger{% elif cat == 'warning' %}flash-warning{% else %}flash-info{% endif %}">
           {{ msg }}
         </div>
       {% endfor %}
     {% endwith %}
 
-    <section class="bg-white rounded-xl shadow p-4 overflow-auto">
-      <h1 class="text-xl font-bold mb-4">Файл: {{ filename }}</h1>
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="text-left p-2">Модель атауы</th>
-            <th class="text-left p-2">Транскрипция (ASR)</th>
-            <th class="text-left p-2">Қазақша аударма (MT)</th>
-            <th class="text-left p-2">Өңдеу уақыты</th>
-            <th class="text-left p-2">WER</th>
-            <th class="text-left p-2">BLEU</th>
-            <th class="text-left p-2">Субтитр</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in results %}
-          <tr class="border-t align-top">
-            <td class="p-2 font-medium">{{ r.model_name }}</td>
-            <td class="p-2 whitespace-pre-wrap">{{ r.text or '—' }}</td>
-            <td class="p-2 whitespace-pre-wrap">{{ r.translation or '—' }}</td>
-            <td class="p-2">{{ r.processing_time if r.processing_time is not none else '—' }} с.</td>
-            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
-            <td class="p-2">
-              {% if r.subtitle_file %}
-              <a class="text-blue-600 underline" href="/subtitles/{{ r.subtitle_file }}">.srt жүктеу</a>
-              {% else %}—{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- File info -->
+    <div class="card">
+      <div class="card-body">
+        <h1 style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:.25rem;">📁 Файл: {{ filename }}</h1>
+        <p style="color:#64748b;font-size:.875rem;">Модельдер нәтижелерінің салыстырмалы кестесі</p>
+      </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <section class="card">
+      <div class="card-header">
+        <h2>📋 Салыстыру кестесі</h2>
+      </div>
+      <div class="results-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Модель</th>
+              <th>Өңдеу уақыты</th>
+              <th>Сенімділік</th>
+              <th>WER</th>
+              <th>CER</th>
+              <th>BLEU</th>
+              <th>Субтитр</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in results %}
+            <tr>
+              <td class="model-name">{{ r.model_name }}</td>
+              <td>
+                {% if r.processing_time is not none %}
+                  <span class="badge badge-slate">⏱ {{ r.processing_time }} с.</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.confidence %}
+                  <span class="badge badge-green">{{ "%.1f"|format(r.confidence * 100) }}%</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.wer is not none %}
+                  <span class="badge {% if r.wer < 0.2 %}badge-green{% elif r.wer < 0.5 %}badge-amber{% else %}badge-red{% endif %}">{{ "%.3f"|format(r.wer) }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.cer is not none %}
+                  <span class="badge {% if r.cer < 0.1 %}badge-green{% elif r.cer < 0.3 %}badge-amber{% else %}badge-red{% endif %}">{{ "%.3f"|format(r.cer) }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.bleu is not none %}
+                  <span class="badge {% if r.bleu > 0.5 %}badge-green{% elif r.bleu > 0.2 %}badge-amber{% else %}badge-red{% endif %}">{{ "%.3f"|format(r.bleu) }}</span>
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.subtitle_file %}
+                <a class="btn-download" href="/subtitles/{{ r.subtitle_file }}">📥 .srt</a>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
 
+    <!-- Transcription Results -->
+    {% for r in results %}
+    <section class="card">
+      <div class="card-header">
+        <h2>🎯 {{ r.model_name }}</h2>
+      </div>
+      <div class="transcript-block space-y">
+        {% if r.text_raw and r.text_raw != r.text %}
+        <div>
+          <h3 class="transcript-label transcript-label-muted">Бастапқы транскрипция (нормализациясыз)</h3>
+          <div class="transcript-box transcript-box-muted">{{ r.text_raw or '—' }}</div>
+        </div>
+        {% endif %}
+        <div>
+          <h3 class="transcript-label transcript-label-green">✅ Нормализацияланған мәтін</h3>
+          <div class="transcript-box transcript-box-green">{{ r.text or '—' }}</div>
+        </div>
+      </div>
+    </section>
+    {% endfor %}
+
     {% if reference %}
-    <section class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm">
-      <strong>Референс:</strong> {{ reference }}
+    <section class="reference-block">
+      <h3>📌 Эталон мәтін</h3>
+      <p>{{ reference }}</p>
     </section>
     {% endif %}
+
+    <!-- Export -->
+    <div class="text-center">
+      <a href="/export" class="btn-outline">📤 CSV экспорт</a>
+    </div>
+
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+  </footer>
 </body>
 </html>

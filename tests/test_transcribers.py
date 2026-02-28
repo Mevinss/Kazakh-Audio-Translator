@@ -177,7 +177,7 @@ class TestFlaskApp(unittest.TestCase):
     def test_index_returns_200(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Kazakh ASR', response.data)
+        self.assertIn('Қазақ ASR', response.get_data(as_text=True))
 
     def test_history_returns_200(self):
         response = self.client.get('/history')
@@ -284,11 +284,10 @@ class TestConfig(unittest.TestCase):
         self.assertIn('mp4', config.ALLOWED_EXTENSIONS)
         self.assertNotIn('txt', config.ALLOWED_EXTENSIONS)
 
-    def test_research_model_keys_defined(self):
+    def test_no_translation_config(self):
         import config
-        self.assertIn('faster_whisper_nllb', config.MODEL_DISPLAY_NAMES)
-        self.assertIn('whisper_large_v3', config.MODEL_DISPLAY_NAMES)
-        self.assertIn('seamless_m4t', config.MODEL_DISPLAY_NAMES)
+        self.assertFalse(hasattr(config, 'TRANSLATABLE_LANGUAGES'))
+        self.assertFalse(hasattr(config, 'SOURCE_LANGUAGES'))
 
 
 class TestNormalizer(unittest.TestCase):
@@ -297,6 +296,30 @@ class TestNormalizer(unittest.TestCase):
         norm = KazakhNormalizer()
         text = norm.normalize('  сәлем әлем  ', use_llm=False)
         self.assertEqual(text, 'Сәлем әлем.')
+
+    def test_normalizer_fixes_repeated_words(self):
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm.normalize('сәлем сәлем әлем', use_llm=False)
+        self.assertEqual(text, 'Сәлем әлем.')
+
+    def test_normalizer_fixes_punctuation(self):
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm.normalize('сәлем , әлем .', use_llm=False)
+        self.assertEqual(text, 'Сәлем, әлем.')
+
+    def test_normalizer_spelling_correction(self):
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm.normalize('калайсыз жаксы', use_llm=False)
+        self.assertEqual(text, 'Қалайсыз жақсы.')
+
+    def test_normalizer_empty_input(self):
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        self.assertEqual(norm.normalize('', use_llm=False), '')
+        self.assertEqual(norm.normalize('   ', use_llm=False), '')
 
 
 # ---------------------------------------------------------------------------
@@ -657,11 +680,11 @@ class TestDatabaseTranslationColumns(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Flask app translation integration test
+# Flask app normalization integration test
 # ---------------------------------------------------------------------------
 
-class TestTranslationInTranscribeRoute(unittest.TestCase):
-    """Integration test: transcribe route with translate_to_kk flag."""
+class TestNormalizationInTranscribeRoute(unittest.TestCase):
+    """Integration test: transcribe route applies normalization."""
 
     def setUp(self):
         import importlib
@@ -690,48 +713,12 @@ class TestTranslationInTranscribeRoute(unittest.TestCase):
         os.unlink(self._tmp_db.name)
         shutil.rmtree(self._tmp_upload, ignore_errors=True)
 
-    def test_translation_stored_when_flag_set(self):
-        """When translate_to_kk=1 and source is English, translation is saved."""
+    def test_normalization_applied_when_flag_set(self):
+        """When apply_normalization=1, text should be normalized."""
         fake_audio = b'RIFF' + b'\x00' * 100
 
         mock_transcribe_result = {
-            'text': 'Hello world',
-            'segments': [],
-            'duration': 2.0,
-            'confidence': 0.9,
-            'processing_time': 1.0,
-            'language': 'en',
-        }
-        mock_transcriber = MagicMock()
-        mock_transcriber.transcribe.return_value = mock_transcribe_result
-
-        mock_translator = MagicMock()
-        mock_translator.translate.return_value = 'Сәлем дүние'
-
-        with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
-             patch('modules.audio_processor.AudioProcessor.prepare_audio',
-                   return_value='/tmp/fake.wav'), \
-             patch('modules.translator.get_translator', return_value=mock_translator):
-            response = self.client.post(
-                '/transcribe',
-                content_type='multipart/form-data',
-                data={
-                    'file': (io.BytesIO(fake_audio), 'speech.wav'),
-                    'models': ['whisper_base'],
-                    'source_language': 'en',
-                    'translate_to_kk': '1',
-                },
-            )
-
-        self.assertIn(response.status_code, (200, 302))
-        mock_translator.translate.assert_called_once_with('Hello world', src='en')
-
-    def test_no_translation_when_source_is_kazakh(self):
-        """When source language is Kazakh, the translator must NOT be called."""
-        fake_audio = b'RIFF' + b'\x00' * 100
-
-        mock_transcribe_result = {
-            'text': 'Сәлеметсіз бе',
+            'text': 'калайсыз жаксы',
             'segments': [],
             'duration': 2.0,
             'confidence': 0.9,
@@ -741,24 +728,54 @@ class TestTranslationInTranscribeRoute(unittest.TestCase):
         mock_transcriber = MagicMock()
         mock_transcriber.transcribe.return_value = mock_transcribe_result
 
-        mock_translator = MagicMock()
-
         with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
              patch('modules.audio_processor.AudioProcessor.prepare_audio',
-                   return_value='/tmp/fake.wav'), \
-             patch('modules.translator.get_translator', return_value=mock_translator):
-            self.client.post(
+                   return_value='/tmp/fake.wav'):
+            response = self.client.post(
                 '/transcribe',
                 content_type='multipart/form-data',
                 data={
                     'file': (io.BytesIO(fake_audio), 'speech.wav'),
                     'models': ['whisper_base'],
-                    'source_language': 'kk',
-                    'translate_to_kk': '1',
+                    'apply_normalization': '1',
                 },
             )
 
-        mock_translator.translate.assert_not_called()
+        self.assertIn(response.status_code, (200, 302))
+        # Check that normalized text appears in the response
+        page_text = response.get_data(as_text=True)
+        self.assertIn('Қалайсыз жақсы.', page_text)
+
+    def test_no_normalization_when_flag_not_set(self):
+        """When apply_normalization is not set, raw text is used."""
+        fake_audio = b'RIFF' + b'\x00' * 100
+
+        mock_transcribe_result = {
+            'text': 'калайсыз жаксы',
+            'segments': [],
+            'duration': 2.0,
+            'confidence': 0.9,
+            'processing_time': 1.0,
+            'language': 'kk',
+        }
+        mock_transcriber = MagicMock()
+        mock_transcriber.transcribe.return_value = mock_transcribe_result
+
+        with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
+             patch('modules.audio_processor.AudioProcessor.prepare_audio',
+                   return_value='/tmp/fake.wav'):
+            response = self.client.post(
+                '/transcribe',
+                content_type='multipart/form-data',
+                data={
+                    'file': (io.BytesIO(fake_audio), 'speech.wav'),
+                    'models': ['whisper_base'],
+                },
+            )
+
+        self.assertIn(response.status_code, (200, 302))
+        page_text = response.get_data(as_text=True)
+        self.assertIn('калайсыз жаксы', page_text)
 
 
 if __name__ == '__main__':
