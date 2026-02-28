@@ -1,15 +1,15 @@
 """
-Kazakh ASR Comparison Web Application
-======================================
-A simple Flask app for transcribing Kazakh audio/video with three ASR models
-and comparing their accuracy metrics (WER, CER).
+Қазақ тілді ASR салыстыру веб-қосымшасы
+========================================
+Қазақ тілді аудио/видео файлдарын үш ASR моделімен транскрипциялап,
+дәлдік метрикаларын (WER, CER) салыстыру үшін Flask қосымшасы.
 
-Machine translation (English/Russian → Kazakh) is integrated as an optional
-post-transcription step using Helsinki-NLP MarianMT models.
+Әрбір модельге қазақ тілінің грамматикалық ережелеріне сәйкес
+мәтін нормализациясы қолданылады.
 
-Run:
+Іске қосу:
     python app.py
-    Open http://localhost:5000
+    http://localhost:5000 ашу
 """
 
 import csv
@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime, timedelta
 
 from flask import (
-    Flask, flash, jsonify, redirect, render_template,
+    Flask, flash, redirect, render_template,
     request, send_file, url_for,
 )
 from werkzeug.utils import secure_filename
@@ -29,8 +29,8 @@ import config
 from modules import database
 from modules.asr_engine import ASREngine, MODEL_DISPLAY_NAMES as ASR_MODEL_DISPLAY_NAMES
 from modules.audio_processor import AudioProcessor
-from modules.metrics import calculate_wer, calculate_cer, calculate_bleu
-from modules.transcribers.whisper_base import WhisperBaseTranscriber
+from modules.metrics import calculate_wer, calculate_cer
+from modules.normalizer import KazakhNormalizer
 from modules.transcribers.whisper_medium import WhisperMediumTranscriber
 from modules.transcribers.faster_whisper import FasterWhisperTranscriber
 
@@ -63,17 +63,18 @@ database.init_db()
 # ---------------------------------------------------------------------------
 _transcribers = {}
 _asr_engine = ASREngine()
+_normalizer = KazakhNormalizer()
 MAX_SUBTITLE_FILENAME_LENGTH = 60
 
 
 def _get_transcriber(model_key: str):
     if model_key not in _transcribers:
-        if model_key == config.MODEL_WHISPER_BASE:
-            _transcribers[model_key] = WhisperBaseTranscriber()
-        elif model_key == config.MODEL_WHISPER_MEDIUM:
+        if model_key == config.MODEL_WHISPER_MEDIUM:
             _transcribers[model_key] = WhisperMediumTranscriber()
         elif model_key == config.MODEL_FASTER_WHISPER:
             _transcribers[model_key] = FasterWhisperTranscriber()
+        elif model_key == config.MODEL_WHISPER_LARGE_V3:
+            _transcribers[model_key] = WhisperMediumTranscriber()
         else:
             raise ValueError(f"Unknown model: {model_key}")
     return _transcribers[model_key]
@@ -139,7 +140,7 @@ def index():
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
-    """Upload file and run selected models."""
+    """Файл жүктеп, таңдалған модельдермен транскрипциялау."""
     if 'file' not in request.files:
         flash('Файл таңдалмады.', 'danger')
         return redirect(url_for('index'))
@@ -159,8 +160,6 @@ def transcribe():
         return redirect(url_for('index'))
 
     reference_text = request.form.get('reference', '').strip() or None
-    source_language = request.form.get('source_language', 'kk').strip() or 'kk'
-    translate_to_kk = bool(request.form.get('translate_to_kk'))
     apply_denoise = bool(request.form.get('apply_denoise'))
     apply_normalization = bool(request.form.get('apply_normalization'))
 
@@ -209,38 +208,32 @@ def transcribe():
                 result = _asr_engine.process(
                     model_key=model_key,
                     audio_path=audio_path,
-                    language=source_language,
+                    language='kk',
                     apply_normalization=apply_normalization,
                 )
             else:
                 transcriber = _get_transcriber(model_key)
-                result = transcriber.transcribe(audio_path, language=source_language)
-                result['text_raw'] = result.get('text', '')
-                detected_lang = result.get('language', source_language) or source_language
-                translation_text = result.get('text', '') if detected_lang == 'kk' else ''
-                if translate_to_kk and detected_lang in config.TRANSLATABLE_LANGUAGES:
-                    try:
-                        from modules.translator import get_translator
-                        translation_text = get_translator().translate(
-                            result.get('text', ''), src=detected_lang
-                        )
-                    except Exception as exc:
-                        logger.warning("Legacy translation failed: %s", exc)
-                result['translation'] = translation_text
+                result = transcriber.transcribe(audio_path, language='kk')
+                raw_text = result.get('text', '')
+                result['text_raw'] = raw_text
+                # Apply normalization to transcription
+                if apply_normalization and raw_text:
+                    result['text'] = _normalizer.normalize(raw_text, use_llm=True)
+                else:
+                    result['text'] = raw_text
         except Exception as exc:
             logger.error("Transcription failed for %s: %s", model_key, exc)
             result = {
-                'text': f'Error: {exc}',
+                'text': f'Қате: {exc}',
                 'text_raw': '',
-                'translation': '',
                 'segments': [],
                 'duration': 0,
                 'confidence': 0,
                 'processing_time': 0,
-                'language': source_language,
+                'language': 'kk',
             }
 
-        wer_val = cer_val = bleu_val = None
+        wer_val = cer_val = None
         if reference_text and result['text']:
             try:
                 wer_val = calculate_wer(reference_text, result['text'])
@@ -248,12 +241,6 @@ def transcribe():
             except Exception as exc:
                 logger.warning("Metrics calculation failed: %s", exc)
 
-        detected_lang = result.get('language', source_language) or source_language
-        translation_text = result.get('translation') or ''
-        if reference_text:
-            bleu_source = translation_text or (result['text'] if detected_lang == 'kk' else '')
-            if bleu_source:
-                bleu_val = calculate_bleu(reference_text, bleu_source)
         subtitle_file = _create_srt_file(uploaded_file.filename, model_key, result.get('segments', []))
 
         record_id = database.save_transcription(
@@ -264,10 +251,8 @@ def transcribe():
             confidence=result['confidence'],
             wer=wer_val,
             cer=cer_val,
-            bleu=bleu_val,
             reference=reference_text,
-            translation=translation_text,
-            source_language=detected_lang,
+            source_language='kk',
         )
         results.append({
             'id': record_id,
@@ -283,10 +268,7 @@ def transcribe():
             'processing_time': result['processing_time'],
             'wer': wer_val,
             'cer': cer_val,
-            'bleu': bleu_val,
-            'translation': translation_text,
             'subtitle_file': subtitle_file,
-            'detected_language': detected_lang,
         })
 
     # Warn when every model produced no text (common first-run symptom)
@@ -305,8 +287,6 @@ def transcribe():
         filename=uploaded_file.filename,
         results=results,
         reference=reference_text,
-        source_language=source_language,
-        language_names=config.SOURCE_LANGUAGES,
     )
 
 
@@ -333,14 +313,9 @@ def result_detail(record_id: int):
                                 'processing_time': None,
                                 'wer': record['wer'],
                                 'cer': record['cer'],
-                                'bleu': record.get('bleu'),
-                                'translation': record.get('translation'),
                                 'subtitle_file': '',
-                                'detected_language': record.get('source_language'),
                             }],
-                           reference=record.get('reference'),
-                           source_language=record.get('source_language', 'kk'),
-                           language_names=config.SOURCE_LANGUAGES)
+                           reference=record.get('reference'))
 
 
 @app.route('/history')
@@ -352,13 +327,13 @@ def history():
 
 @app.route('/export')
 def export_csv():
-    """Export all transcription history as CSV."""
+    """Барлық транскрипция тарихын CSV ретінде экспорттау."""
     records = database.get_all_transcriptions()
 
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer', 'bleu',
+        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer',
                     'duration', 'confidence', 'created_at'],
         extrasaction='ignore',
     )
@@ -376,7 +351,7 @@ def export_csv():
 
 @app.route('/export/<int:record_id>')
 def export_single_csv(record_id: int):
-    """Export a single transcription record as CSV."""
+    """Жеке транскрипция жазбасын CSV ретінде экспорттау."""
     record = database.get_transcription(record_id)
     if record is None:
         flash('Жазба табылмады.', 'danger')
@@ -385,7 +360,7 @@ def export_single_csv(record_id: int):
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer', 'bleu',
+        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer',
                     'duration', 'confidence', 'created_at'],
         extrasaction='ignore',
     )

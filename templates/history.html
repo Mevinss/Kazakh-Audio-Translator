@@ -3,50 +3,229 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Тарих</title>
+  <title>Транскрипция тарихы</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kazakh: {
+              blue: '#0072CE',
+              gold: '#FFCC00',
+              sky: '#00A3E0',
+              dark: '#1a1a2e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-bg {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+    .table-row {
+      transition: all 0.2s ease;
+    }
+    .table-row:hover {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      transform: scale(1.005);
+    }
+    .btn-export {
+      background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+      transition: all 0.3s ease;
+    }
+    .btn-export:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(22, 163, 74, 0.3);
+    }
+  </style>
 </head>
-<body class="bg-slate-50">
-  <main class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Транскрипция тарихы</h1>
-      <a href="/" class="text-blue-700 underline">Басты бетке оралу</a>
+<body class="bg-slate-50 min-h-screen">
+  <!-- Header -->
+  <header class="gradient-bg text-white sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+      <div class="flex justify-between items-center">
+        <a href="/" class="flex items-center gap-3 group">
+          <div class="w-10 h-10 bg-kazakh-gold rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <span class="text-xl">🎙️</span>
+          </div>
+          <div>
+            <h1 class="font-bold">Қазақ ASR</h1>
+            <p class="text-xs text-blue-200">Зерттеу платформасы</p>
+          </div>
+        </a>
+        <nav class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            <span class="hidden sm:inline">Жаңа файл</span>
+          </a>
+          <a href="/history" class="flex items-center gap-2 bg-kazakh-gold text-slate-900 px-4 py-2 rounded-lg font-medium">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="hidden sm:inline">Тарих</span>
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Page header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 bg-gradient-to-br from-kazakh-blue to-kazakh-sky rounded-2xl flex items-center justify-center text-white shadow-lg">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-3xl font-bold">Транскрипция тарихы</h1>
+          <p class="text-slate-500">Барлық өңделген файлдар</p>
+        </div>
+      </div>
+      <a href="/export" class="btn-export flex items-center gap-2 text-white px-6 py-3 rounded-xl font-semibold shadow-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        CSV экспорты
+      </a>
     </div>
 
     {% if records %}
-    <div class="bg-white rounded-xl shadow overflow-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="p-2 text-left">ID</th>
-            <th class="p-2 text-left">Файл</th>
-            <th class="p-2 text-left">Модель</th>
-            <th class="p-2 text-left">WER</th>
-            <th class="p-2 text-left">BLEU</th>
-            <th class="p-2 text-left">Күні</th>
-            <th class="p-2 text-left">Әрекет</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in records %}
-          <tr class="border-t">
-            <td class="p-2">{{ r.id }}</td>
-            <td class="p-2">{{ r.filename }}</td>
-            <td class="p-2">{{ model_names.get(r.model, r.model) }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
-            <td class="p-2">{{ r.created_at }}</td>
-            <td class="p-2">
-              <a class="text-blue-700 underline" href="/results/{{ r.id }}">Көру</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <!-- Records table -->
+    <div class="glass-card rounded-2xl shadow-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr class="bg-gradient-to-r from-slate-800 to-slate-700 text-white">
+              <th class="text-left p-4 font-semibold">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+                  </svg>
+                  ID
+                </span>
+              </th>
+              <th class="text-left p-4 font-semibold">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                  </svg>
+                  Файл
+                </span>
+              </th>
+              <th class="text-left p-4 font-semibold">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                  </svg>
+                  Модель
+                </span>
+              </th>
+              <th class="text-left p-4 font-semibold">WER</th>
+              <th class="text-left p-4 font-semibold">CER</th>
+              <th class="text-left p-4 font-semibold">
+                <span class="flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  Күні
+                </span>
+              </th>
+              <th class="text-left p-4 font-semibold">Әрекет</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for r in records %}
+            <tr class="table-row">
+              <td class="p-4">
+                <span class="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm font-mono">{{ r.id }}</span>
+              </td>
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-kazakh-blue/10 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-kazakh-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                    </svg>
+                  </div>
+                  <span class="font-medium truncate max-w-xs">{{ r.filename }}</span>
+                </div>
+              </td>
+              <td class="p-4">
+                <span class="bg-gradient-to-r from-kazakh-blue/10 to-kazakh-sky/10 text-kazakh-blue px-3 py-1 rounded-lg text-sm font-medium">
+                  {{ model_names.get(r.model, r.model) }}
+                </span>
+              </td>
+              <td class="p-4">
+                {% if r.wer is not none %}
+                <span class="px-2 py-1 rounded text-sm font-medium {% if r.wer < 0.2 %}bg-green-100 text-green-700{% elif r.wer < 0.5 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ "%.1f"|format(r.wer * 100) }}%
+                </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="p-4">
+                {% if r.cer is not none %}
+                <span class="px-2 py-1 rounded text-sm font-medium {% if r.cer < 0.1 %}bg-green-100 text-green-700{% elif r.cer < 0.3 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+                  {{ "%.1f"|format(r.cer * 100) }}%
+                </span>
+                {% else %}—{% endif %}
+              </td>
+              <td class="p-4 text-slate-500 text-sm">{{ r.created_at }}</td>
+              <td class="p-4">
+                <a href="/results/{{ r.id }}" class="inline-flex items-center gap-2 bg-kazakh-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                  Көру
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
     {% else %}
-      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">Әзірге жазба жоқ.</div>
+    <!-- Empty state -->
+    <div class="glass-card rounded-2xl shadow-xl p-12 text-center">
+      <div class="w-24 h-24 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-6">
+        <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+      </div>
+      <h2 class="text-2xl font-bold mb-2">Әзірге транскрипция жоқ</h2>
+      <p class="text-slate-500 mb-6">Аудио/видео файл жүктеп, алғашқы транскрипцияны жасаңыз</p>
+      <a href="/" class="inline-flex items-center gap-2 bg-gradient-to-r from-kazakh-blue to-kazakh-sky text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Бастау
+      </a>
+    </div>
     {% endif %}
   </main>
+
+  <!-- Footer -->
+  <footer class="mt-16 border-t border-slate-200 bg-white">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🇰🇿</span>
+          <span class="text-slate-600">Қазақ тілді ASR зерттеу платформасы</span>
+        </div>
+        <p class="text-sm text-slate-500">© 2024 Барлық құқықтар қорғалған</p>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

@@ -3,68 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Нәтижелер</title>
+  <title>Субтитр салыстыру нәтижелері</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            kazakh: {
+              blue: '#0072CE',
+              gold: '#FFCC00',
+              sky: '#00A3E0',
+              dark: '#1a1a2e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .gradient-bg {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+    .metric-card {
+      transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    .result-row {
+      transition: all 0.2s ease;
+    }
+    .result-row:hover {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+    .wer-good { color: #16a34a; background: #dcfce7; }
+    .wer-medium { color: #ca8a04; background: #fef9c3; }
+    .wer-bad { color: #dc2626; background: #fee2e2; }
+    .progress-bar {
+      background: linear-gradient(90deg, #0072CE 0%, #00A3E0 100%);
+      transition: width 1s ease-out;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <header class="bg-slate-900 text-white">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-      <a href="/" class="font-semibold">🎙️ Нәтиже салыстыру</a>
-      <div class="flex gap-2">
-        <a href="/" class="bg-slate-700 px-3 py-2 rounded text-sm">Жаңа файл</a>
-        <a href="/history" class="bg-slate-700 px-3 py-2 rounded text-sm">Тарих</a>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+  <!-- Header -->
+  <header class="gradient-bg text-white sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4">
+      <div class="flex justify-between items-center">
+        <a href="/" class="flex items-center gap-3 group">
+          <div class="w-10 h-10 bg-kazakh-gold rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <span class="text-xl">🎙️</span>
+          </div>
+          <span class="font-bold">Нәтижелер</span>
+        </a>
+        <div class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            <span class="hidden sm:inline">Жаңа файл</span>
+          </a>
+          <a href="/history" class="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="hidden sm:inline">Тарих</span>
+          </a>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
-        <div class="rounded border px-4 py-3 {% if cat == 'danger' %}bg-red-50 border-red-200 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-amber-200 text-amber-700{% else %}bg-sky-50 border-sky-200 text-sky-700{% endif %}">
-          {{ msg }}
+        <div class="mb-6 rounded-xl px-6 py-4 flex items-center gap-3 shadow-md {% if cat == 'danger' %}bg-red-50 border-l-4 border-red-500 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-l-4 border-amber-500 text-amber-700{% else %}bg-sky-50 border-l-4 border-sky-500 text-sky-700{% endif %}">
+          <span>{{ msg }}</span>
         </div>
       {% endfor %}
     {% endwith %}
 
-    <section class="bg-white rounded-xl shadow p-4 overflow-auto">
-      <h1 class="text-xl font-bold mb-4">Файл: {{ filename }}</h1>
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="text-left p-2">Модель атауы</th>
-            <th class="text-left p-2">Транскрипция (ASR)</th>
-            <th class="text-left p-2">Қазақша аударма (MT)</th>
-            <th class="text-left p-2">Өңдеу уақыты</th>
-            <th class="text-left p-2">WER</th>
-            <th class="text-left p-2">BLEU</th>
-            <th class="text-left p-2">Субтитр</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in results %}
-          <tr class="border-t align-top">
-            <td class="p-2 font-medium">{{ r.model_name }}</td>
-            <td class="p-2 whitespace-pre-wrap">{{ r.text or '—' }}</td>
-            <td class="p-2 whitespace-pre-wrap">{{ r.translation or '—' }}</td>
-            <td class="p-2">{{ r.processing_time if r.processing_time is not none else '—' }} с.</td>
-            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
-            <td class="p-2">
-              {% if r.subtitle_file %}
-              <a class="text-blue-600 underline" href="/subtitles/{{ r.subtitle_file }}">.srt жүктеу</a>
-              {% else %}—{% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </section>
+    <!-- File info header -->
+    <div class="mb-8">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-14 h-14 bg-gradient-to-br from-kazakh-blue to-kazakh-sky rounded-2xl flex items-center justify-center text-white shadow-lg">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold">{{ filename }}</h1>
+          <p class="text-slate-500">{{ results|length }} модельмен салыстырылды</p>
+        </div>
+      </div>
+    </div>
 
+    <!-- Results cards grid -->
+    <div class="space-y-6 mb-8">
+      {% for r in results %}
+      <div class="glass-card rounded-2xl shadow-xl overflow-hidden">
+        <!-- Model header -->
+        <div class="bg-gradient-to-r from-slate-800 to-slate-700 text-white p-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="font-bold text-lg">{{ r.model_name }}</h2>
+              <p class="text-sm text-blue-200">
+                {% if 'Large' in r.model_name %}Жоғары дәлдік{% elif 'Medium' in r.model_name %}Орташа дәлдік{% else %}Стандарт{% endif %}
+              </p>
+            </div>
+          </div>
+          {% if r.subtitle_file %}
+          <a href="/subtitles/{{ r.subtitle_file }}" class="flex items-center gap-2 bg-kazakh-gold text-slate-900 px-4 py-2 rounded-lg font-medium hover:bg-yellow-400 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            .SRT жүктеу
+          </a>
+          {% endif %}
+        </div>
+
+        <div class="p-6">
+          <!-- Metrics -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="metric-card bg-slate-50 rounded-xl p-4 text-center">
+              <p class="text-sm text-slate-500 mb-1">Өңдеу уақыты</p>
+              <p class="text-2xl font-bold text-slate-800">
+                {{ r.processing_time if r.processing_time is not none else '—' }}
+                <span class="text-sm font-normal text-slate-500">сек</span>
+              </p>
+            </div>
+            <div class="metric-card rounded-xl p-4 text-center {% if r.wer is not none %}{% if r.wer < 0.2 %}wer-good{% elif r.wer < 0.5 %}wer-medium{% else %}wer-bad{% endif %}{% else %}bg-slate-50{% endif %}">
+              <p class="text-sm mb-1 {% if r.wer is not none %}opacity-70{% else %}text-slate-500{% endif %}">WER</p>
+              <p class="text-2xl font-bold">
+                {% if r.wer is not none %}
+                {{ "%.1f"|format(r.wer * 100) }}%
+                {% else %}—{% endif %}
+              </p>
+            </div>
+            <div class="metric-card rounded-xl p-4 text-center {% if r.cer is not none %}{% if r.cer < 0.1 %}wer-good{% elif r.cer < 0.3 %}wer-medium{% else %}wer-bad{% endif %}{% else %}bg-slate-50{% endif %}">
+              <p class="text-sm mb-1 {% if r.cer is not none %}opacity-70{% else %}text-slate-500{% endif %}">CER</p>
+              <p class="text-2xl font-bold">
+                {% if r.cer is not none %}
+                {{ "%.1f"|format(r.cer * 100) }}%
+                {% else %}—{% endif %}
+              </p>
+            </div>
+            <div class="metric-card bg-slate-50 rounded-xl p-4 text-center">
+              <p class="text-sm text-slate-500 mb-1">Сенімділік</p>
+              <p class="text-2xl font-bold text-slate-800">
+                {% if r.confidence %}{{ "%.0f"|format(r.confidence * 100) }}%{% else %}—{% endif %}
+              </p>
+            </div>
+          </div>
+
+          <!-- Transcription text -->
+          <div>
+            <h3 class="font-semibold mb-3 flex items-center gap-2">
+              <svg class="w-5 h-5 text-kazakh-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Транскрипция (нормализацияланған)
+            </h3>
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <p class="whitespace-pre-wrap text-slate-700 leading-relaxed">{{ r.text or 'Транскрипция жоқ' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Reference text section -->
     {% if reference %}
-    <section class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm">
-      <strong>Референс:</strong> {{ reference }}
-    </section>
+    <div class="glass-card rounded-2xl shadow-xl p-6 mb-8 border-l-4 border-kazakh-gold">
+      <h3 class="font-bold text-lg mb-3 flex items-center gap-2">
+        <span class="text-2xl">📝</span>
+        Эталон мәтін
+      </h3>
+      <p class="text-slate-700 bg-slate-50 rounded-xl p-4">{{ reference }}</p>
+    </div>
     {% endif %}
+
+    <!-- Metrics explanation -->
+    <div class="glass-card rounded-2xl shadow-xl p-6">
+      <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+        <span class="text-2xl">📊</span>
+        Метрикалар түсіндірмесі
+      </h3>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="text-xl font-bold text-blue-600">W</span>
+          </div>
+          <div>
+            <h4 class="font-semibold">WER (Word Error Rate)</h4>
+            <p class="text-sm text-slate-600">Сөз деңгейіндегі қате коэффициенті. Неғұрлым төмен болса, соғұрлым жақсы.</p>
+            <div class="flex gap-2 mt-2">
+              <span class="text-xs px-2 py-1 rounded wer-good">&lt;20% Өте жақсы</span>
+              <span class="text-xs px-2 py-1 rounded wer-medium">20-50% Орташа</span>
+              <span class="text-xs px-2 py-1 rounded wer-bad">&gt;50% Нашар</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span class="text-xl font-bold text-purple-600">C</span>
+          </div>
+          <div>
+            <h4 class="font-semibold">CER (Character Error Rate)</h4>
+            <p class="text-sm text-slate-600">Таңба деңгейіндегі қате коэффициенті. Неғұрлым төмен болса, соғұрлым жақсы.</p>
+            <div class="flex gap-2 mt-2">
+              <span class="text-xs px-2 py-1 rounded wer-good">&lt;10% Өте жақсы</span>
+              <span class="text-xs px-2 py-1 rounded wer-medium">10-30% Орташа</span>
+              <span class="text-xs px-2 py-1 rounded wer-bad">&gt;30% Нашар</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
+
+  <!-- Footer -->
+  <footer class="mt-16 border-t border-slate-200 bg-white">
+    <div class="max-w-7xl mx-auto px-4 py-6">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🇰🇿</span>
+          <span class="text-slate-600">Қазақ тілді ASR зерттеу платформасы</span>
+        </div>
+        <a href="/" class="text-kazakh-blue hover:underline">← Басты бетке оралу</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>
