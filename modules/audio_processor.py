@@ -57,7 +57,11 @@ class AudioProcessor:
             raise RuntimeError(f"Audio normalization failed: {exc.stderr.decode()}") from exc
 
     def prepare_audio(self, input_path: str) -> str:
-        """Full pipeline: extract audio (if needed) and normalize it."""
+        """Full pipeline: extract audio (if needed) and normalize it.
+
+        If normalization produces an empty or missing file it falls back to the
+        pre-normalization audio so the models always receive a valid file.
+        """
         _, ext = os.path.splitext(input_path)
         ext = ext.lower()
         video_extensions = {'.mp4', '.avi', '.mkv', '.mov', '.webm'}
@@ -67,4 +71,15 @@ class AudioProcessor:
         else:
             audio_path = input_path
 
-        return self.normalize_audio(audio_path)
+        normalized = self.normalize_audio(audio_path)
+
+        # Guard against ffmpeg producing a zero-byte or missing output file,
+        # which would make every model return empty text silently.
+        if not os.path.isfile(normalized) or os.path.getsize(normalized) == 0:
+            logger.warning(
+                "Normalized file is missing or empty (%s); falling back to %s",
+                normalized, audio_path,
+            )
+            return audio_path
+
+        return normalized

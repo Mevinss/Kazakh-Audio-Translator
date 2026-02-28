@@ -141,7 +141,18 @@
             </div>
           {% else %}
             <div class="transcription-text p-3 bg-light rounded">
-              {{ r.text or '(пусто)' }}
+              {% if r.text and r.text.startswith('Error:') %}
+                <span class="text-danger">{{ r.text }}</span>
+              {% elif r.text %}
+                {{ r.text }}
+              {% else %}
+                <span class="text-muted fst-italic">
+                  ⚠️ Модель не вернула текст.
+                  Возможные причины: в аудио нет речи, модель ещё загружается,
+                  или FFmpeg не установлен.
+                  Проверьте, что файл содержит чёткую речь на выбранном языке.
+                </span>
+              {% endif %}
             </div>
           {% endif %}
           {% if r.translation %}
@@ -178,7 +189,18 @@
           </div>
         {% else %}
           <div class="transcription-text p-3 bg-light rounded">
-            {{ r.text or '(пусто)' }}
+            {% if r.text and r.text.startswith('Error:') %}
+              <span class="text-danger">{{ r.text }}</span>
+            {% elif r.text %}
+              {{ r.text }}
+            {% else %}
+              <span class="text-muted fst-italic">
+                ⚠️ Модель не вернула текст.
+                Возможные причины: в аудио нет речи, модель ещё загружается,
+                или FFmpeg не установлен.
+                Проверьте, что файл содержит чёткую речь на выбранном языке.
+              </span>
+            {% endif %}
           </div>
         {% endif %}
         {% if r.translation %}

@@ -193,6 +193,7 @@ class TestFlaskApp(unittest.TestCase):
             'duration': 2.0,
             'confidence': 0.9,
             'processing_time': 1.5,
+            'language': 'kk',
         }
 
         import app as flask_app
@@ -336,7 +337,9 @@ class TestAudioProcessor(unittest.TestCase):
         proc = self._make_processor()
 
         with patch.object(proc, 'extract_audio', return_value='/tmp/extracted.wav') as mock_extract, \
-             patch.object(proc, 'normalize_audio', return_value='/tmp/extracted_normalized.wav') as mock_norm:
+             patch.object(proc, 'normalize_audio', return_value='/tmp/extracted_normalized.wav') as mock_norm, \
+             patch('os.path.isfile', return_value=True), \
+             patch('os.path.getsize', return_value=2048):
             result = proc.prepare_audio('/uploads/abc_mp4.mp4')
             mock_extract.assert_called_once_with('/uploads/abc_mp4.mp4')
             mock_norm.assert_called_once_with('/tmp/extracted.wav')
@@ -347,9 +350,39 @@ class TestAudioProcessor(unittest.TestCase):
         proc = self._make_processor()
 
         with patch.object(proc, 'extract_audio') as mock_extract, \
-             patch.object(proc, 'normalize_audio', return_value='/tmp/n.wav'):
+             patch.object(proc, 'normalize_audio', return_value='/tmp/n.wav'), \
+             patch('os.path.isfile', return_value=True), \
+             patch('os.path.getsize', return_value=1024):
             proc.prepare_audio('/uploads/abc.wav')
             mock_extract.assert_not_called()
+
+    def test_prepare_audio_falls_back_when_normalized_is_empty(self):
+        """prepare_audio must return the pre-normalized path when the normalized
+        WAV is zero bytes or missing — prevents silent empty transcriptions."""
+        proc = self._make_processor()
+
+        with patch.object(proc, 'extract_audio') as mock_extract, \
+             patch.object(proc, 'normalize_audio', return_value='/tmp/n.wav'), \
+             patch('os.path.isfile', return_value=True), \
+             patch('os.path.getsize', return_value=0):  # zero-byte output
+            result = proc.prepare_audio('/uploads/abc.wav')
+            # Should fall back to the original audio (input to normalize_audio)
+            self.assertEqual(result, '/uploads/abc.wav')
+            mock_extract.assert_not_called()
+
+    def test_prepare_audio_falls_back_when_normalized_missing(self):
+        """prepare_audio must return the pre-normalized path when the normalized
+        file does not exist on disk.  Also verify getsize is not called when
+        isfile already returns False (short-circuit)."""
+        proc = self._make_processor()
+
+        with patch.object(proc, 'normalize_audio', return_value='/tmp/n.wav'), \
+             patch('os.path.isfile', return_value=False) as mock_isfile, \
+             patch('os.path.getsize') as mock_getsize:
+            result = proc.prepare_audio('/uploads/abc.wav')
+            self.assertEqual(result, '/uploads/abc.wav')
+            mock_isfile.assert_called_once_with('/tmp/n.wav')
+            mock_getsize.assert_not_called()
 
 
 class TestCyrillicFilenameHandling(unittest.TestCase):
@@ -378,6 +411,7 @@ class TestCyrillicFilenameHandling(unittest.TestCase):
 
         flask_app.app.config['TESTING'] = True
         self.client = flask_app.app.test_client()
+        self.flask_app = flask_app
 
     def tearDown(self):
         import config
@@ -392,6 +426,7 @@ class TestCyrillicFilenameHandling(unittest.TestCase):
         mock_result = {
             'text': 'test', 'segments': [], 'duration': 1.0,
             'confidence': 0.9, 'processing_time': 0.1,
+            'language': 'kk',
         }
         mock_transcriber = MagicMock()
         mock_transcriber.transcribe.return_value = mock_result
@@ -435,6 +470,38 @@ class TestCyrillicFilenameHandling(unittest.TestCase):
         self.assertEqual(len(files), 1)
         self.assertTrue(files[0].endswith('.mp4'),
                         f"Expected .mp4 extension, saved as: {files[0]}")
+
+    def test_empty_result_flash_warning(self):
+        """When all models return empty text, a warning flash must be present."""
+        fake_audio = b'RIFF' + b'\x00' * 100
+        mock_result = {
+            'text': '',
+            'segments': [],
+            'duration': 1.0,
+            'confidence': 0.0,
+            'processing_time': 0.5,
+            'language': 'kk',
+        }
+        mock_transcriber = MagicMock()
+        mock_transcriber.transcribe.return_value = mock_result
+
+        with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
+             patch('modules.audio_processor.AudioProcessor.prepare_audio',
+                   return_value='/tmp/fake.wav'):
+            response = self.client.post(
+                '/transcribe',
+                content_type='multipart/form-data',
+                data={
+                    'file': (io.BytesIO(fake_audio), 'speech.wav'),
+                    'models': ['whisper_base'],
+                    'source_language': 'kk',
+                },
+                follow_redirects=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        # Warning banner must appear on the page
+        self.assertIn('вернули пустой результат', response.get_data(as_text=True))
 
 
 

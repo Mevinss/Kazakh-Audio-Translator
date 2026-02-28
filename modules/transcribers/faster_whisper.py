@@ -33,9 +33,7 @@ class FasterWhisperTranscriber(BaseTranscriber):
         segs, info = self._model.transcribe(
             audio_path,
             language=lang_arg,
-            beam_size=10,
-            best_of=5,
-            temperature=0.0,
+            beam_size=5,
             vad_filter=True,
             condition_on_previous_text=True,
         )

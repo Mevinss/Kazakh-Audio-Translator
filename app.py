@@ -144,10 +144,18 @@ def transcribe():
     # prepare_audio() can identify video files correctly.
     original_ext = os.path.splitext(uploaded_file.filename)[1].lower()
     filename = secure_filename(uploaded_file.filename)
+    # secure_filename strips all non-ASCII characters. For a Cyrillic-only name
+    # like "казахский.wav" it returns just "wav" (the extension chars), so
+    # os.path.splitext("wav") yields ("wav", "") with no extension.  Restore
+    # the original extension in that case so FFmpeg can identify the format.
     if (original_ext
             and original_ext.lstrip('.') in config.ALLOWED_EXTENSIONS
             and not os.path.splitext(filename)[1]):
         filename = filename + original_ext
+    # If secure_filename returns an empty string (fully non-ASCII name, no
+    # extension at all), give the file a safe generic name.
+    if not filename or not filename.strip('._'):
+        filename = 'upload' + original_ext
     unique_prefix = uuid.uuid4().hex
     filename = f"{unique_prefix}_{filename}"
     file_path = os.path.join(config.UPLOAD_FOLDER, filename)
@@ -230,6 +238,15 @@ def transcribe():
             'translation': translation_text,
             'detected_language': detected_lang,
         })
+
+    # Warn when every model produced no text (common first-run symptom)
+    if results and all(not r['text'] or r['text'].startswith('Error:') for r in results):
+        flash(
+            'Все модели вернули пустой результат. '
+            'Убедитесь, что аудио содержит речь и что FFmpeg установлен. '
+            'При первом запуске модели загружаются автоматически — это может занять несколько минут.',
+            'warning',
+        )
 
     _cleanup_old_files()
 
