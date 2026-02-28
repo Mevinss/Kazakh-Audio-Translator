@@ -16,7 +16,17 @@ class FasterWhisperTranscriber(BaseTranscriber):
 
     def _load_model(self):
         if self._model is None:
-            from faster_whisper import WhisperModel
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError as e:
+                logger.error(
+                    "Failed to import 'faster_whisper'. Make sure 'faster-whisper' is installed: "
+                    "pip install faster-whisper. Original error: %s", e
+                )
+                raise ImportError(
+                    "Модуль 'faster_whisper' табылмады. 'faster-whisper' орнатыңыз: "
+                    "pip install faster-whisper"
+                ) from e
             logger.info("Loading Faster-Whisper %s model…", self.MODEL_SIZE)
             self._model = WhisperModel(
                 self.MODEL_SIZE,

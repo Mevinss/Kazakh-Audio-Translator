@@ -41,6 +41,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Startup dependency check
+# ---------------------------------------------------------------------------
+def _check_dependencies():
+    """Log warnings for missing optional dependencies at startup."""
+    deps = {
+        'whisper': 'openai-whisper',
+        'faster_whisper': 'faster-whisper',
+    }
+    for module_name, pip_name in deps.items():
+        try:
+            __import__(module_name)
+            logger.info("✅ %s module available.", module_name)
+        except ImportError as e:
+            logger.warning(
+                "⚠️  Cannot import '%s' (pip install %s). "
+                "Models depending on it will fail. Error: %s",
+                module_name, pip_name, e,
+            )
+
+_check_dependencies()
+
+# ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
