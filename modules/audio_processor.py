@@ -98,7 +98,7 @@ class AudioProcessor:
         # which would make every model return empty text silently.
         if not os.path.isfile(prepared) or os.path.getsize(prepared) == 0:
             logger.warning(
-                "Normalized file is missing or empty (%s); falling back to %s",
+                "Prepared file is missing or empty (%s); falling back to %s",
                 prepared, audio_path,
             )
             return audio_path

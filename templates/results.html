@@ -46,7 +46,7 @@
             <td class="p-2 font-medium">{{ r.model_name }}</td>
             <td class="p-2 whitespace-pre-wrap">{{ r.text or '—' }}</td>
             <td class="p-2 whitespace-pre-wrap">{{ r.translation or '—' }}</td>
-            <td class="p-2">{{ r.processing_time if r.processing_time is not none else '—' }} сек</td>
+            <td class="p-2">{{ r.processing_time if r.processing_time is not none else '—' }} с.</td>
             <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
             <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
             <td class="p-2">

@@ -48,7 +48,8 @@ class KazakhNormalizer:
         cleaned = re.sub(r"\s+", " ", text).strip()
         if not cleaned:
             return ""
-        cleaned = cleaned[0].upper() + cleaned[1:]
+        if len(cleaned) > 0:
+            cleaned = cleaned[:1].upper() + cleaned[1:]
         if cleaned[-1] not in ".!?":
             cleaned += "."
         return cleaned

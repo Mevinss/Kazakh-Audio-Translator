@@ -35,6 +35,10 @@ class ASREngine:
             elif model_key in (MODEL_WHISPER_LARGE_V3, MODEL_SEAMLESS_M4T):
                 # Lightweight fallback for environments where the target model
                 # is unavailable.
+                logger.warning(
+                    "Model %s is running via WhisperMedium fallback in this environment.",
+                    model_key,
+                )
                 self._models[model_key] = WhisperMediumTranscriber()
             else:
                 raise ValueError(f"Unknown model: {model_key}")

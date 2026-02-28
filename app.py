@@ -63,6 +63,7 @@ database.init_db()
 # ---------------------------------------------------------------------------
 _transcribers = {}
 _asr_engine = ASREngine()
+MAX_SUBTITLE_FILENAME_LENGTH = 60
 
 
 def _get_transcriber(model_key: str):
@@ -114,7 +115,8 @@ def _create_srt_file(filename: str, model_key: str, segments: list) -> str:
         millis = int((sec - int(sec)) * 1000)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
 
-    srt_name = f"{uuid.uuid4().hex}_{model_key}_{secure_filename(filename)}.srt"
+    safe_base = secure_filename(filename)[:MAX_SUBTITLE_FILENAME_LENGTH]
+    srt_name = f"{uuid.uuid4().hex}_{model_key}_{safe_base}.srt"
     srt_path = os.path.join(config.UPLOAD_FOLDER, srt_name)
     with open(srt_path, 'w', encoding='utf-8') as f:
         for idx, seg in enumerate(segments, start=1):
@@ -243,12 +245,15 @@ def transcribe():
             try:
                 wer_val = calculate_wer(reference_text, result['text'])
                 cer_val = calculate_cer(reference_text, result['text'])
-                bleu_val = calculate_bleu(reference_text, result.get('translation') or result['text'])
             except Exception as exc:
                 logger.warning("Metrics calculation failed: %s", exc)
 
         detected_lang = result.get('language', source_language) or source_language
         translation_text = result.get('translation') or ''
+        if reference_text:
+            bleu_source = translation_text or (result['text'] if detected_lang == 'kk' else '')
+            if bleu_source:
+                bleu_val = calculate_bleu(reference_text, bleu_source)
         subtitle_file = _create_srt_file(uploaded_file.filename, model_key, result.get('segments', []))
 
         record_id = database.save_transcription(
