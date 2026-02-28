@@ -4,20 +4,20 @@ import tempfile
 import logging
 
 from modules.normalizer import KazakhNormalizer
-from modules.translator import get_translator
 from modules.transcribers.faster_whisper import FasterWhisperTranscriber
 from modules.transcribers.whisper_medium import WhisperMediumTranscriber
 
 logger = logging.getLogger(__name__)
 
-MODEL_FASTER_NLLB = "faster_whisper_nllb"
+# Three high-accuracy models for Kazakh ASR comparison
+MODEL_WHISPER_MEDIUM = "whisper_medium"
+MODEL_FASTER_WHISPER = "faster_whisper"
 MODEL_WHISPER_LARGE_V3 = "whisper_large_v3"
-MODEL_SEAMLESS_M4T = "seamless_m4t"
 
 MODEL_DISPLAY_NAMES = {
-    MODEL_FASTER_NLLB: "Faster-Whisper + NLLB-200",
-    MODEL_WHISPER_LARGE_V3: "Whisper Large-v3 (ASR+Translation)",
-    MODEL_SEAMLESS_M4T: "SeamlessM4T (интеграцияланған)",
+    MODEL_WHISPER_MEDIUM: "Whisper Medium",
+    MODEL_FASTER_WHISPER: "Faster-Whisper Large-v3",
+    MODEL_WHISPER_LARGE_V3: "Whisper Large-v3",
 }
 
 
@@ -30,15 +30,9 @@ class ASREngine:
 
     def _get_model(self, model_key: str):
         if model_key not in self._models:
-            if model_key == MODEL_FASTER_NLLB:
+            if model_key == MODEL_FASTER_WHISPER:
                 self._models[model_key] = FasterWhisperTranscriber()
-            elif model_key in (MODEL_WHISPER_LARGE_V3, MODEL_SEAMLESS_M4T):
-                # Lightweight fallback for environments where the target model
-                # is unavailable.
-                logger.warning(
-                    "Model %s is running via WhisperMedium fallback in this environment.",
-                    model_key,
-                )
+            elif model_key in (MODEL_WHISPER_MEDIUM, MODEL_WHISPER_LARGE_V3):
                 self._models[model_key] = WhisperMediumTranscriber()
             else:
                 raise ValueError(f"Unknown model: {model_key}")
@@ -84,27 +78,14 @@ class ASREngine:
 
         raw_text = " ".join(part for part in full_text if part).strip()
         normalized_text = self._normalizer.normalize(raw_text, use_llm=apply_normalization)
-        translation = self._translate_to_kazakh(normalized_text, detected_language)
         elapsed = round(time.time() - started_at, 2)
 
         return {
             "text_raw": raw_text,
             "text": normalized_text,
-            "translation": translation,
             "segments": full_segments,
             "processing_time": elapsed,
             "duration": round(full_segments[-1]["end"], 2) if full_segments else 0.0,
             "confidence": 0.0,
             "language": detected_language,
         }
-
-    def _translate_to_kazakh(self, text: str, src_lang: str) -> str:
-        if not text:
-            return ""
-        if src_lang == "kk":
-            return text
-        try:
-            return get_translator().translate(text, src=src_lang) or ""
-        except Exception as exc:
-            logger.warning("Translation failed for %s->kk: %s", src_lang, exc)
-            return ""

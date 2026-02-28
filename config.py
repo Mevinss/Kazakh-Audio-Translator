@@ -17,28 +17,18 @@ LANGUAGE = 'kk'
 # File cleanup: days after which uploaded files are deleted
 FILE_MAX_AGE_DAYS = 7
 
-# Transcriber model names
-MODEL_WHISPER_BASE = 'whisper_base'
+# Transcriber model names - 3 high-accuracy models for Kazakh ASR comparison
 MODEL_WHISPER_MEDIUM = 'whisper_medium'
 MODEL_FASTER_WHISPER = 'faster_whisper'
+MODEL_WHISPER_LARGE_V3 = 'whisper_large_v3'
 
 MODEL_DISPLAY_NAMES = {
-    MODEL_WHISPER_BASE: 'Whisper Base',
     MODEL_WHISPER_MEDIUM: 'Whisper Medium',
     MODEL_FASTER_WHISPER: 'Faster-Whisper Large-v3',
-    'faster_whisper_nllb': 'Faster-Whisper + NLLB-200',
-    'whisper_large_v3': 'Whisper Large-v3 (ASR+Translation)',
-    'seamless_m4t': 'SeamlessM4T (интеграцияланған)',
+    MODEL_WHISPER_LARGE_V3: 'Whisper Large-v3',
 }
 
-# Source languages that the user can select in the upload form.
-# 'auto' lets Whisper detect the language automatically.
+# Source language is always Kazakh for subtitle comparison
 SOURCE_LANGUAGES = {
-    'kk': 'Қазақ тілі (kk)',
-    'ru': 'Орыс тілі (ru)',
-    'en': 'Ағылшын тілі (en)',
-    'auto': 'Автоанықтау',
+    'kk': 'Қазақ тілі',
 }
-
-# Languages (other than Kazakh) for which machine translation to KK is available
-TRANSLATABLE_LANGUAGES = {'en', 'ru'}

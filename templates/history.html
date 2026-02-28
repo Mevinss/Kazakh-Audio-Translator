@@ -3,14 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Тарих</title>
+  <title>Транскрипция тарихы</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50">
+  <header class="bg-slate-900 text-white">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <a href="/" class="font-semibold text-lg">🎙️ Қазақ тілді ASR зерттеу платформасы</a>
+      <a href="/history" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded">Тарих</a>
+    </div>
+  </header>
+
   <main class="max-w-6xl mx-auto px-4 py-8">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Транскрипция тарихы</h1>
-      <a href="/" class="text-blue-700 underline">Басты бетке оралу</a>
+      <div class="flex gap-2">
+        <a href="/" class="text-blue-700 underline">Басты бетке оралу</a>
+        <a href="/export" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm">CSV экспорт</a>
+      </div>
     </div>
 
     {% if records %}
@@ -22,7 +32,7 @@
             <th class="p-2 text-left">Файл</th>
             <th class="p-2 text-left">Модель</th>
             <th class="p-2 text-left">WER</th>
-            <th class="p-2 text-left">BLEU</th>
+            <th class="p-2 text-left">CER</th>
             <th class="p-2 text-left">Күні</th>
             <th class="p-2 text-left">Әрекет</th>
           </tr>
@@ -34,7 +44,7 @@
             <td class="p-2">{{ r.filename }}</td>
             <td class="p-2">{{ model_names.get(r.model, r.model) }}</td>
             <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
+            <td class="p-2">{{ "%.3f"|format(r.cer) if r.cer is not none else '—' }}</td>
             <td class="p-2">{{ r.created_at }}</td>
             <td class="p-2">
               <a class="text-blue-700 underline" href="/results/{{ r.id }}">Көру</a>
@@ -45,7 +55,7 @@
       </table>
     </div>
     {% else %}
-      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">Әзірге жазба жоқ.</div>
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">Әзірге транскрипция жазбасы жоқ.</div>
     {% endif %}
   </main>
 </body>
