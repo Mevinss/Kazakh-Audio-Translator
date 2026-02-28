@@ -3,50 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Тарих</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Тарих | Қазақ ASR</title>
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="bg-slate-50">
-  <main class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex justify-between items-center mb-4">
-      <h1 class="text-2xl font-bold">Транскрипция тарихы</h1>
-      <a href="/" class="text-blue-700 underline">Басты бетке оралу</a>
+<body>
+  <header class="site-header">
+    <div class="inner">
+      <a href="/" class="brand">
+        <span class="icon">📜</span>
+        <span>Транскрипция тарихы</span>
+      </a>
+      <nav>
+        <a href="/">Басты бет</a>
+        <a href="/export">📤 CSV экспорт</a>
+      </nav>
     </div>
+  </header>
+
+  <main class="container" style="padding-top:2.5rem;padding-bottom:2.5rem;">
+    <div class="space-y-lg">
 
     {% if records %}
-    <div class="bg-white rounded-xl shadow overflow-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-slate-100">
-          <tr>
-            <th class="p-2 text-left">ID</th>
-            <th class="p-2 text-left">Файл</th>
-            <th class="p-2 text-left">Модель</th>
-            <th class="p-2 text-left">WER</th>
-            <th class="p-2 text-left">BLEU</th>
-            <th class="p-2 text-left">Күні</th>
-            <th class="p-2 text-left">Әрекет</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in records %}
-          <tr class="border-t">
-            <td class="p-2">{{ r.id }}</td>
-            <td class="p-2">{{ r.filename }}</td>
-            <td class="p-2">{{ model_names.get(r.model, r.model) }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.wer) if r.wer is not none else '—' }}</td>
-            <td class="p-2">{{ "%.3f"|format(r.bleu) if r.bleu is not none else '—' }}</td>
-            <td class="p-2">{{ r.created_at }}</td>
-            <td class="p-2">
-              <a class="text-blue-700 underline" href="/results/{{ r.id }}">Көру</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="card">
+      <div class="card-header">
+        <h2>📋 Барлық жазбалар</h2>
+        <p>Соңғы транскрипция нәтижелері</p>
+      </div>
+      <div class="history-table">
+        <table id="historyTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Файл</th>
+              <th>Модель</th>
+              <th>WER</th>
+              <th>CER</th>
+              <th>BLEU</th>
+              <th>Күні</th>
+              <th>Әрекет</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in records %}
+            <tr>
+              <td class="cell-id">{{ r.id }}</td>
+              <td class="cell-file">{{ r.filename }}</td>
+              <td><span class="badge badge-sky">{{ model_names.get(r.model, r.model) }}</span></td>
+              <td>
+                {% if r.wer is not none %}<span class="cell-mono">{{ "%.3f"|format(r.wer) }}</span>{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.cer is not none %}<span class="cell-mono">{{ "%.3f"|format(r.cer) }}</span>{% else %}—{% endif %}
+              </td>
+              <td>
+                {% if r.bleu is not none %}<span class="cell-mono">{{ "%.3f"|format(r.bleu) }}</span>{% else %}—{% endif %}
+              </td>
+              <td style="color:#64748b;font-size:.75rem;">{{ r.created_at }}</td>
+              <td>
+                <a class="btn-download" href="/results/{{ r.id }}">👁 Көру</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
     {% else %}
-      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">Әзірге жазба жоқ.</div>
+      <div class="card">
+        <div class="card-body empty-state">
+          <div class="emoji">📭</div>
+          <h2>Әзірге жазба жоқ</h2>
+          <p>Алғашқы транскрипцияңызды жасау үшін файл жүктеңіз</p>
+          <a href="/" class="btn-primary" style="display:inline-block;width:auto;">🎙️ Файл жүктеу</a>
+        </div>
+      </div>
     {% endif %}
+
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
 </body>
 </html>

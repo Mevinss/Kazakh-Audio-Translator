@@ -3,83 +3,120 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kazakh ASR | Қазақша мультимедиа аудармашы</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Қазақ тілі ASR | Субтитр салыстыру платформасы</title>
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <header class="bg-slate-900 text-white">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-      <a href="/" class="font-semibold text-lg">🎙️ Kazakh ASR зерттеу платформасы</a>
-      <a href="/history" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded">Тарих</a>
+<body>
+  <header class="site-header">
+    <div class="inner">
+      <a href="/" class="brand">
+        <span class="icon">🎙️</span>
+        <span>Қазақ ASR платформасы</span>
+      </a>
+      <nav>
+        <a href="/">Басты бет</a>
+        <a href="/history">Тарих</a>
+      </nav>
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+  <main class="container" style="padding-top:2.5rem;padding-bottom:2.5rem;">
+    <div class="space-y-lg">
+
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for cat, msg in messages %}
-        <div class="rounded border px-4 py-3 {% if cat == 'danger' %}bg-red-50 border-red-200 text-red-700{% elif cat == 'warning' %}bg-amber-50 border-amber-200 text-amber-700{% else %}bg-sky-50 border-sky-200 text-sky-700{% endif %}">
+        <div class="flash {% if cat == 'danger' %}flash-danger{% elif cat == 'warning' %}flash-warning{% else %}flash-info{% endif %}">
           {{ msg }}
         </div>
       {% endfor %}
     {% endwith %}
 
-    <section class="bg-white rounded-xl shadow p-6">
-      <h1 class="text-2xl font-bold mb-2">Қазақ тілді мультимедиалық ағындарды талдау</h1>
-      <p class="text-slate-600 mb-6">Файл жүктеп, үш модельдің ASR/аударма нәтижелерін салыстырыңыз.</p>
-
-      <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y-5">
-        <div>
-          <label for="fileInput" class="block text-sm font-medium mb-2">Аудио/видео файлды жүктеу</label>
-          <input id="fileInput" name="file" required type="file"
-                 accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm"
-                 class="block w-full text-sm border rounded-lg p-3 bg-slate-50">
+    <section class="card">
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:2rem;">
+          <h1 style="font-size:1.875rem;font-weight:800;color:#1e293b;margin-bottom:.5rem;">Қазақ тілді субтитр салыстыру</h1>
+          <p style="color:#64748b;font-size:1.125rem;">Аудио/видео файлды жүктеп, үш ASR модельдің нәтижелерін салыстырыңыз</p>
         </div>
 
-        <div>
-          <p class="block text-sm font-medium mb-2">Модельдер</p>
-          <div class="space-y-2">
-            {% for key, name in models.items() %}
-            <label class="flex items-center gap-2 text-sm">
-              <input type="checkbox" class="rounded" name="models" value="{{ key }}" checked>
-              <span>{{ name }}</span>
-            </label>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="grid md:grid-cols-2 gap-4">
+        <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y">
+          <!-- File Upload -->
           <div>
-            <label for="sourceLang" class="block text-sm font-medium mb-2">Кіріс тіл</label>
-            <select id="sourceLang" name="source_language" class="w-full border rounded-lg p-3 bg-white">
-              {% for code, label in source_languages.items() %}
-              <option value="{{ code }}" {% if code == 'kk' %}selected{% endif %}>{{ label }}</option>
+            <label for="fileInput" class="form-label">📁 Аудио/видео файлды жүктеу</label>
+            <input id="fileInput" name="file" required type="file"
+                   accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm"
+                   class="form-file">
+            <p class="form-hint">MP3, WAV, OGG, FLAC, M4A, MP4, AVI, MKV, MOV, WebM (макс. 500 МБ)</p>
+          </div>
+
+          <!-- Models -->
+          <div>
+            <p class="form-label">🤖 Модельдерді таңдаңыз</p>
+            <div class="model-grid">
+              {% for key, name in models.items() %}
+              <label class="check-card">
+                <input type="checkbox" name="models" value="{{ key }}" checked>
+                <span>{{ name }}</span>
+              </label>
               {% endfor %}
-            </select>
+            </div>
           </div>
+
+          <!-- Reference text -->
           <div>
-            <label for="reference" class="block text-sm font-medium mb-2">Референс мәтін (WER/BLEU үшін)</label>
-            <textarea id="reference" name="reference" rows="3"
-                      class="w-full border rounded-lg p-3"
-                      placeholder="Эталон мәтінді енгізіңіз (міндетті емес)"></textarea>
+            <label for="reference" class="form-label">📝 Эталон мәтін (WER/CER/BLEU үшін)</label>
+            <textarea id="reference" name="reference" rows="3" class="form-textarea"
+                      placeholder="Қосымша: нақты мәтінді енгізіп, модельдердің дәлдігін бағалаңыз"></textarea>
           </div>
-        </div>
 
-        <div class="grid sm:grid-cols-2 gap-4">
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="apply_denoise" value="1" class="rounded">
-            <span>Шуды тазарту (denoising) қосу</span>
-          </label>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="apply_normalization" value="1" class="rounded" checked>
-            <span>Қазақша нормализацияны қолдану</span>
-          </label>
-        </div>
+          <!-- Options -->
+          <div class="option-grid">
+            <label class="option-card">
+              <input type="checkbox" name="apply_denoise" value="1">
+              <div>
+                <div class="option-title">🔇 Шуды тазарту</div>
+                <div class="option-desc">Фондық шуды азайту</div>
+              </div>
+            </label>
+            <label class="option-card">
+              <input type="checkbox" name="apply_normalization" value="1" checked>
+              <div>
+                <div class="option-title">✍️ Нормализация</div>
+                <div class="option-desc">Қазақ тілі грамматикасын түзету</div>
+              </div>
+            </label>
+          </div>
 
-        <button type="submit" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold">
-          Нәтижені салыстыру
-        </button>
-      </form>
+          <button type="submit" class="btn-primary">🚀 Нәтижені салыстыру</button>
+        </form>
+      </div>
     </section>
+
+    <!-- Info Cards -->
+    <section class="info-grid">
+      <div class="info-card">
+        <div class="emoji">📊</div>
+        <h3>Дәлдік метрикалары</h3>
+        <p>WER, CER, BLEU көрсеткіштерімен модельдерді салыстырыңыз</p>
+      </div>
+      <div class="info-card">
+        <div class="emoji">📝</div>
+        <h3>Субтитр жасау</h3>
+        <p>SRT форматындағы субтитрлерді жүктеп алыңыз</p>
+      </div>
+      <div class="info-card">
+        <div class="emoji">✍️</div>
+        <h3>Мәтін нормализациясы</h3>
+        <p>Қазақ тілі ережелеріне сай грамматиканы түзету</p>
+      </div>
+    </section>
+
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
 </body>
 </html>
