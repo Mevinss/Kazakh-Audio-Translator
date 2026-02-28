@@ -26,14 +26,18 @@ class FasterWhisperTranscriber(BaseTranscriber):
             )
             logger.info("Faster-Whisper %s model loaded.", self.MODEL_SIZE)
 
-    def transcribe(self, audio_path: str) -> dict:
+    def transcribe(self, audio_path: str, language: str = 'kk') -> dict:
         self._load_model()
         start = time.time()
+        lang_arg = None if language in (None, 'auto') else language
         segs, info = self._model.transcribe(
             audio_path,
-            language='kk',
-            beam_size=5,
+            language=lang_arg,
+            beam_size=10,
+            best_of=5,
+            temperature=0.0,
             vad_filter=True,
+            condition_on_previous_text=True,
         )
         segs = list(segs)  # consume the generator
         elapsed = time.time() - start
@@ -52,6 +56,7 @@ class FasterWhisperTranscriber(BaseTranscriber):
             confidence = 0.0
 
         duration = info.duration if hasattr(info, 'duration') else elapsed
+        detected_lang = getattr(info, 'language', None) or lang_arg or 'kk'
 
         return {
             'text': ' '.join(s['text'] for s in segments),
@@ -59,4 +64,5 @@ class FasterWhisperTranscriber(BaseTranscriber):
             'duration': round(duration, 2),
             'confidence': confidence,
             'processing_time': round(elapsed, 2),
+            'language': detected_lang,
         }

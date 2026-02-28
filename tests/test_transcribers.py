@@ -248,12 +248,17 @@ class TestBaseTranscriber(unittest.TestCase):
         from modules.transcribers.base_transcriber import BaseTranscriber
 
         class DummyTranscriber(BaseTranscriber):
-            def transcribe(self, audio_path: str) -> dict:
-                return {'text': 'hello', 'segments': [], 'duration': 1.0, 'confidence': 1.0}
+            def transcribe(self, audio_path: str, language: str = 'kk') -> dict:
+                return {'text': 'hello', 'segments': [], 'duration': 1.0,
+                        'confidence': 1.0, 'language': language}
 
         t = DummyTranscriber()
         result = t.transcribe('fake.wav')
         self.assertEqual(result['text'], 'hello')
+        self.assertEqual(result['language'], 'kk')
+
+        result_en = t.transcribe('fake.wav', language='en')
+        self.assertEqual(result_en['language'], 'en')
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +435,245 @@ class TestCyrillicFilenameHandling(unittest.TestCase):
         self.assertEqual(len(files), 1)
         self.assertTrue(files[0].endswith('.mp4'),
                         f"Expected .mp4 extension, saved as: {files[0]}")
+
+
+
+# ---------------------------------------------------------------------------
+# Translation module tests
+# ---------------------------------------------------------------------------
+
+class TestMarianTranslator(unittest.TestCase):
+    """Unit tests for MarianTranslator that mock the HuggingFace models."""
+
+    def _make_translator(self):
+        from modules.translator import MarianTranslator
+        return MarianTranslator()
+
+    def test_supported_sources(self):
+        from modules.translator import MarianTranslator
+        sources = MarianTranslator.supported_sources()
+        self.assertIn('en', sources)
+        self.assertIn('ru', sources)
+
+    def test_translate_empty_returns_empty(self):
+        t = self._make_translator()
+        self.assertEqual(t.translate('', 'en'), '')
+        self.assertEqual(t.translate('  ', 'ru'), '')
+
+    def test_translate_unsupported_pair_returns_empty(self):
+        t = self._make_translator()
+        result = t.translate('hello', src='de')  # German not supported
+        self.assertEqual(result, '')
+
+    def test_translate_en_to_kk_calls_model(self):
+        """translate() must call the MarianMT model and return decoded output."""
+        t = self._make_translator()
+
+        fake_tokenizer = MagicMock()
+        fake_tokenizer.return_value = {'input_ids': MagicMock()}
+        fake_tokenizer.decode.return_value = 'Сәлем'
+
+        fake_model = MagicMock()
+        fake_model.generate.return_value = [[0]]  # fake token ids
+
+        # Pre-populate the cache so no real download happens
+        t._cache[('en', 'kk')] = (fake_model, fake_tokenizer)
+
+        result = t.translate('Hello world', src='en')
+        self.assertEqual(result, 'Сәлем')
+        fake_model.generate.assert_called_once()
+        # Verify the correct input text was forwarded to the tokenizer
+        call_args = fake_tokenizer.call_args
+        self.assertEqual(call_args[0][0], 'Hello world')
+
+    def test_split_text_short(self):
+        from modules.translator import _split_text
+        chunks = _split_text('one two three')
+        self.assertEqual(chunks, ['one two three'])
+
+    def test_split_text_long(self):
+        from modules.translator import _split_text
+        words = ['word'] * 250
+        chunks = _split_text(' '.join(words), max_words=100)
+        self.assertEqual(len(chunks), 3)
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk.split()), 100)
+
+
+# ---------------------------------------------------------------------------
+# Database translation column tests
+# ---------------------------------------------------------------------------
+
+class TestDatabaseTranslationColumns(unittest.TestCase):
+    """Verify that the translation and source_language columns are stored."""
+
+    def setUp(self):
+        import importlib
+        import tempfile
+        import config
+        self._tmp = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+        self._tmp.close()
+        self._orig_path = config.DATABASE_PATH
+        config.DATABASE_PATH = self._tmp.name
+        import modules.database as db_module
+        importlib.reload(db_module)
+        self.db = db_module
+        self.db.init_db()
+
+    def tearDown(self):
+        import config
+        config.DATABASE_PATH = self._orig_path
+        os.unlink(self._tmp.name)
+
+    def test_save_with_translation(self):
+        record_id = self.db.save_transcription(
+            filename='en_audio.wav',
+            model='faster_whisper',
+            text='Hello world',
+            duration=2.0,
+            confidence=0.9,
+            translation='Сәлем дүние',
+            source_language='en',
+        )
+        record = self.db.get_transcription(record_id)
+        self.assertEqual(record['translation'], 'Сәлем дүние')
+        self.assertEqual(record['source_language'], 'en')
+
+    def test_save_without_translation_defaults_to_none(self):
+        record_id = self.db.save_transcription(
+            filename='kk_audio.wav',
+            model='whisper_base',
+            text='Сәлеметсіз бе',
+            duration=1.0,
+            confidence=0.8,
+        )
+        record = self.db.get_transcription(record_id)
+        self.assertIsNone(record['translation'])
+        self.assertIsNone(record['source_language'])
+
+    def test_migrate_adds_columns_to_existing_db(self):
+        """_migrate_db() must silently succeed on an already-migrated DB and
+        must not destroy any pre-existing records."""
+        # Insert a record before the second migration
+        record_id = self.db.save_transcription(
+            filename='pre_migration.wav',
+            model='whisper_base',
+            text='Тест',
+            duration=1.0,
+            confidence=0.8,
+        )
+        # Calling init_db() a second time (which calls _migrate_db() again)
+        # must not raise even though the columns already exist.
+        self.db.init_db()  # idempotent
+        # Pre-existing record must survive the migration
+        record = self.db.get_transcription(record_id)
+        self.assertIsNotNone(record)
+        self.assertEqual(record['text'], 'Тест')
+
+
+# ---------------------------------------------------------------------------
+# Flask app translation integration test
+# ---------------------------------------------------------------------------
+
+class TestTranslationInTranscribeRoute(unittest.TestCase):
+    """Integration test: transcribe route with translate_to_kk flag."""
+
+    def setUp(self):
+        import importlib
+        import tempfile
+        import config
+        self._tmp_db = tempfile.NamedTemporaryFile(suffix='.db', delete=False)
+        self._tmp_db.close()
+        self._tmp_upload = tempfile.mkdtemp()
+        self._orig_db = config.DATABASE_PATH
+        self._orig_upload = config.UPLOAD_FOLDER
+        config.DATABASE_PATH = self._tmp_db.name
+        config.UPLOAD_FOLDER = self._tmp_upload
+        import modules.database as db_module
+        importlib.reload(db_module)
+        import app as flask_app
+        importlib.reload(flask_app)
+        flask_app.app.config['TESTING'] = True
+        self.client = flask_app.app.test_client()
+        self.flask_app = flask_app
+
+    def tearDown(self):
+        import config
+        import shutil
+        config.DATABASE_PATH = self._orig_db
+        config.UPLOAD_FOLDER = self._orig_upload
+        os.unlink(self._tmp_db.name)
+        shutil.rmtree(self._tmp_upload, ignore_errors=True)
+
+    def test_translation_stored_when_flag_set(self):
+        """When translate_to_kk=1 and source is English, translation is saved."""
+        fake_audio = b'RIFF' + b'\x00' * 100
+
+        mock_transcribe_result = {
+            'text': 'Hello world',
+            'segments': [],
+            'duration': 2.0,
+            'confidence': 0.9,
+            'processing_time': 1.0,
+            'language': 'en',
+        }
+        mock_transcriber = MagicMock()
+        mock_transcriber.transcribe.return_value = mock_transcribe_result
+
+        mock_translator = MagicMock()
+        mock_translator.translate.return_value = 'Сәлем дүние'
+
+        with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
+             patch('modules.audio_processor.AudioProcessor.prepare_audio',
+                   return_value='/tmp/fake.wav'), \
+             patch('modules.translator.get_translator', return_value=mock_translator):
+            response = self.client.post(
+                '/transcribe',
+                content_type='multipart/form-data',
+                data={
+                    'file': (io.BytesIO(fake_audio), 'speech.wav'),
+                    'models': ['whisper_base'],
+                    'source_language': 'en',
+                    'translate_to_kk': '1',
+                },
+            )
+
+        self.assertIn(response.status_code, (200, 302))
+        mock_translator.translate.assert_called_once_with('Hello world', src='en')
+
+    def test_no_translation_when_source_is_kazakh(self):
+        """When source language is Kazakh, the translator must NOT be called."""
+        fake_audio = b'RIFF' + b'\x00' * 100
+
+        mock_transcribe_result = {
+            'text': 'Сәлеметсіз бе',
+            'segments': [],
+            'duration': 2.0,
+            'confidence': 0.9,
+            'processing_time': 1.0,
+            'language': 'kk',
+        }
+        mock_transcriber = MagicMock()
+        mock_transcriber.transcribe.return_value = mock_transcribe_result
+
+        mock_translator = MagicMock()
+
+        with patch.object(self.flask_app, '_get_transcriber', return_value=mock_transcriber), \
+             patch('modules.audio_processor.AudioProcessor.prepare_audio',
+                   return_value='/tmp/fake.wav'), \
+             patch('modules.translator.get_translator', return_value=mock_translator):
+            self.client.post(
+                '/transcribe',
+                content_type='multipart/form-data',
+                data={
+                    'file': (io.BytesIO(fake_audio), 'speech.wav'),
+                    'models': ['whisper_base'],
+                    'source_language': 'kk',
+                    'translate_to_kk': '1',
+                },
+            )
+
+        mock_translator.translate.assert_not_called()
 
 
 if __name__ == '__main__':

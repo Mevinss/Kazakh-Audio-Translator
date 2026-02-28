@@ -27,3 +27,15 @@ MODEL_DISPLAY_NAMES = {
     MODEL_WHISPER_MEDIUM: 'Whisper Medium',
     MODEL_FASTER_WHISPER: 'Faster-Whisper Large-v3',
 }
+
+# Source languages that the user can select in the upload form.
+# 'auto' lets Whisper detect the language automatically.
+SOURCE_LANGUAGES = {
+    'kk': 'Казахский (kk)',
+    'ru': 'Русский (ru)',
+    'en': 'Английский (en)',
+    'auto': 'Автоопределение',
+}
+
+# Languages (other than Kazakh) for which machine translation to KK is available
+TRANSLATABLE_LANGUAGES = {'en', 'ru'}

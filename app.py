@@ -4,6 +4,9 @@ Kazakh ASR Comparison Web Application
 A simple Flask app for transcribing Kazakh audio/video with three ASR models
 and comparing their accuracy metrics (WER, CER).
 
+Machine translation (English/Russian → Kazakh) is integrated as an optional
+post-transcription step using Helsinki-NLP MarianMT models.
+
 Run:
     python app.py
     Open http://localhost:5000
@@ -104,7 +107,8 @@ def _cleanup_old_files():
 @app.route('/')
 def index():
     return render_template('index.html',
-                           models=config.MODEL_DISPLAY_NAMES)
+                           models=config.MODEL_DISPLAY_NAMES,
+                           source_languages=config.SOURCE_LANGUAGES)
 
 
 @app.route('/transcribe', methods=['POST'])
@@ -129,6 +133,8 @@ def transcribe():
         return redirect(url_for('index'))
 
     reference_text = request.form.get('reference', '').strip() or None
+    source_language = request.form.get('source_language', 'kk').strip() or 'kk'
+    translate_to_kk = bool(request.form.get('translate_to_kk'))
 
     # Save file
     # secure_filename strips non-ASCII (e.g. Cyrillic) characters.  When the
@@ -164,7 +170,7 @@ def transcribe():
             continue
         try:
             transcriber = _get_transcriber(model_key)
-            result = transcriber.transcribe(audio_path)
+            result = transcriber.transcribe(audio_path, language=source_language)
         except Exception as exc:
             logger.error("Transcription failed for %s: %s", model_key, exc)
             result = {
@@ -173,6 +179,7 @@ def transcribe():
                 'duration': 0,
                 'confidence': 0,
                 'processing_time': 0,
+                'language': source_language,
             }
 
         wer_val = cer_val = None
@@ -183,6 +190,20 @@ def transcribe():
             except Exception as exc:
                 logger.warning("Metrics calculation failed: %s", exc)
 
+        # Machine translation: translate transcribed text to Kazakh when the
+        # audio is in English or Russian.
+        detected_lang = result.get('language', source_language) or source_language
+        translation_text = None
+        if translate_to_kk and detected_lang in config.TRANSLATABLE_LANGUAGES:
+            try:
+                from modules.translator import get_translator
+                translation_text = get_translator().translate(
+                    result['text'], src=detected_lang
+                )
+                logger.info("Translated %s→kk (%d chars)", detected_lang, len(translation_text))
+            except Exception as exc:
+                logger.warning("Translation failed: %s", exc)
+
         record_id = database.save_transcription(
             filename=filename,
             model=model_key,
@@ -192,6 +213,8 @@ def transcribe():
             wer=wer_val,
             cer=cer_val,
             reference=reference_text,
+            translation=translation_text,
+            source_language=detected_lang,
         )
         results.append({
             'id': record_id,
@@ -204,6 +227,8 @@ def transcribe():
             'processing_time': result['processing_time'],
             'wer': wer_val,
             'cer': cer_val,
+            'translation': translation_text,
+            'detected_language': detected_lang,
         })
 
     _cleanup_old_files()
@@ -213,6 +238,8 @@ def transcribe():
         filename=uploaded_file.filename,
         results=results,
         reference=reference_text,
+        source_language=source_language,
+        language_names=config.SOURCE_LANGUAGES,
     )
 
 
@@ -235,8 +262,12 @@ def result_detail(record_id: int):
                                'processing_time': None,
                                'wer': record['wer'],
                                'cer': record['cer'],
+                               'translation': record.get('translation'),
+                               'detected_language': record.get('source_language'),
                            }],
-                           reference=record.get('reference'))
+                           reference=record.get('reference'),
+                           source_language=record.get('source_language', 'kk'),
+                           language_names=config.SOURCE_LANGUAGES)
 
 
 @app.route('/history')

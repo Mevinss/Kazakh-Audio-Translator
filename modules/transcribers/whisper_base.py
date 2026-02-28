@@ -21,10 +21,19 @@ class WhisperBaseTranscriber(BaseTranscriber):
             self._model = whisper.load_model(self.MODEL_SIZE)
             logger.info("Whisper %s model loaded.", self.MODEL_SIZE)
 
-    def transcribe(self, audio_path: str) -> dict:
+    def transcribe(self, audio_path: str, language: str = 'kk') -> dict:
         self._load_model()
         start = time.time()
-        result = self._model.transcribe(audio_path, language='kk', verbose=False)
+        # Pass None for auto-detect; otherwise use the specified language code.
+        lang_arg = None if language in (None, 'auto') else language
+        result = self._model.transcribe(
+            audio_path,
+            language=lang_arg,
+            verbose=False,
+            beam_size=5,
+            best_of=5,
+            condition_on_previous_text=True,
+        )
         elapsed = time.time() - start
 
         segments = [
@@ -51,4 +60,5 @@ class WhisperBaseTranscriber(BaseTranscriber):
             'duration': round(duration, 2),
             'confidence': confidence,
             'processing_time': round(elapsed, 2),
+            'language': result.get('language', lang_arg or 'kk'),
         }

@@ -8,16 +8,18 @@ logger = logging.getLogger(__name__)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS transcriptions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename    TEXT NOT NULL,
-    model       TEXT NOT NULL,
-    text        TEXT,
-    wer         REAL,
-    cer         REAL,
-    duration    REAL,
-    confidence  REAL,
-    reference   TEXT,
-    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename        TEXT NOT NULL,
+    model           TEXT NOT NULL,
+    text            TEXT,
+    wer             REAL,
+    cer             REAL,
+    duration        REAL,
+    confidence      REAL,
+    reference       TEXT,
+    translation     TEXT,
+    source_language TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -26,7 +28,28 @@ def init_db():
     """Create database tables if they do not exist yet."""
     with _get_connection() as conn:
         conn.executescript(SCHEMA)
+    _migrate_db()
     logger.info("Database initialised at %s", DATABASE_PATH)
+
+
+def _migrate_db():
+    """Add new columns to pre-existing databases (forward-compatible).
+
+    Column names and types are taken from a hardcoded allowlist — they are
+    never derived from user input — so constructing the ALTER TABLE statement
+    with string formatting is safe here.
+    """
+    # Allowlist: only these column definitions may ever be added.
+    _ALLOWED_COLUMNS = {
+        'translation': 'TEXT',
+        'source_language': 'TEXT',
+    }
+    with _get_connection() as conn:
+        for col, col_type in _ALLOWED_COLUMNS.items():
+            try:
+                conn.execute(f"ALTER TABLE transcriptions ADD COLUMN {col} {col_type}")
+            except Exception:
+                pass  # Column already exists — safe to ignore
 
 
 @contextmanager
@@ -46,14 +69,22 @@ def _get_connection():
 def save_transcription(filename: str, model: str, text: str,
                        duration: float, confidence: float,
                        wer: float = None, cer: float = None,
-                       reference: str = None) -> int:
+                       reference: str = None,
+                       translation: str = None,
+                       source_language: str = None) -> int:
     """Insert a transcription record and return its id."""
     sql = """
-        INSERT INTO transcriptions (filename, model, text, wer, cer, duration, confidence, reference)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO transcriptions
+            (filename, model, text, wer, cer, duration, confidence, reference,
+             translation, source_language)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     with _get_connection() as conn:
-        cursor = conn.execute(sql, (filename, model, text, wer, cer, duration, confidence, reference))
+        cursor = conn.execute(
+            sql,
+            (filename, model, text, wer, cer, duration, confidence, reference,
+             translation, source_language),
+        )
         return cursor.lastrowid
 
 
