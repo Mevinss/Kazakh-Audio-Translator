@@ -10,7 +10,7 @@ KAZAKH_FRONT_VOWELS = set('әөүі')  # Жіңішке дауыстылар
 KAZAKH_NEUTRAL_VOWELS = set('еиу')  # Бейтарап дауыстылар
 KAZAKH_ALL_VOWELS = KAZAKH_BACK_VOWELS | KAZAKH_FRONT_VOWELS | KAZAKH_NEUTRAL_VOWELS
 
-# Қазақ тіліндегі арнайы әріптер
+# Қазақ тіліндегі арнайы әріптер (болашақ тексерулер үшін)
 KAZAKH_SPECIAL_CHARS = set('әғқңөұүһі')
 
 
@@ -117,7 +117,11 @@ class KazakhNormalizer:
         return cleaned
 
     def _check_vowel_harmony(self, word: str) -> bool:
-        """Сингармонизмді (үндестік заңын) тексеру."""
+        """Сингармонизмді (үндестік заңын) тексеру.
+        
+        Бұл әдіс болашақ жақсарту үшін сақталған - сөздердің
+        үндестік заңына сәйкестігін тексеру үшін қолданылады.
+        """
         word_lower = word.lower()
         has_back = any(v in word_lower for v in KAZAKH_BACK_VOWELS)
         has_front = any(v in word_lower for v in KAZAKH_FRONT_VOWELS)
