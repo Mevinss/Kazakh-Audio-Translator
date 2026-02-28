@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# IDE / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Flask / app runtime
+uploads/*
+!uploads/.gitkeep
+models/*
+!models/.gitkeep
+database.db
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
