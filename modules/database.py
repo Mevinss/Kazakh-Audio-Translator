@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS transcriptions (
     text            TEXT,
     wer             REAL,
     cer             REAL,
+    bleu            REAL,
     duration        REAL,
     confidence      REAL,
     reference       TEXT,
@@ -43,6 +44,7 @@ def _migrate_db():
     _ALLOWED_COLUMNS = {
         'translation': 'TEXT',
         'source_language': 'TEXT',
+        'bleu': 'REAL',
     }
     with _get_connection() as conn:
         for col, col_type in _ALLOWED_COLUMNS.items():
@@ -68,21 +70,22 @@ def _get_connection():
 
 def save_transcription(filename: str, model: str, text: str,
                        duration: float, confidence: float,
-                       wer: float = None, cer: float = None,
+                        wer: float = None, cer: float = None,
+                       bleu: float = None,
                        reference: str = None,
                        translation: str = None,
                        source_language: str = None) -> int:
     """Insert a transcription record and return its id."""
     sql = """
         INSERT INTO transcriptions
-            (filename, model, text, wer, cer, duration, confidence, reference,
+            (filename, model, text, wer, cer, bleu, duration, confidence, reference,
              translation, source_language)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     with _get_connection() as conn:
         cursor = conn.execute(
             sql,
-            (filename, model, text, wer, cer, duration, confidence, reference,
+            (filename, model, text, wer, cer, bleu, duration, confidence, reference,
              translation, source_language),
         )
         return cursor.lastrowid

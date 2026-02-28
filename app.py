@@ -27,8 +27,9 @@ from werkzeug.utils import secure_filename
 
 import config
 from modules import database
+from modules.asr_engine import ASREngine, MODEL_DISPLAY_NAMES as ASR_MODEL_DISPLAY_NAMES
 from modules.audio_processor import AudioProcessor
-from modules.metrics import calculate_wer, calculate_cer
+from modules.metrics import calculate_wer, calculate_cer, calculate_bleu
 from modules.transcribers.whisper_base import WhisperBaseTranscriber
 from modules.transcribers.whisper_medium import WhisperMediumTranscriber
 from modules.transcribers.faster_whisper import FasterWhisperTranscriber
@@ -61,6 +62,8 @@ database.init_db()
 # Lazy-loaded model singletons
 # ---------------------------------------------------------------------------
 _transcribers = {}
+_asr_engine = ASREngine()
+MAX_SUBTITLE_FILENAME_LENGTH = 60
 
 
 def _get_transcriber(model_key: str):
@@ -100,6 +103,29 @@ def _cleanup_old_files():
     database.delete_old_files(config.FILE_MAX_AGE_DAYS)
 
 
+def _create_srt_file(filename: str, model_key: str, segments: list) -> str:
+    if not segments:
+        return ''
+
+    def _fmt(sec: float) -> str:
+        sec = float(sec)
+        hours = int(sec // 3600)
+        minutes = int((sec % 3600) // 60)
+        seconds = int(sec % 60)
+        millis = int((sec - int(sec)) * 1000)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d},{millis:03d}"
+
+    safe_base = secure_filename(filename)[:MAX_SUBTITLE_FILENAME_LENGTH]
+    srt_name = f"{uuid.uuid4().hex}_{model_key}_{safe_base}.srt"
+    srt_path = os.path.join(config.UPLOAD_FOLDER, srt_name)
+    with open(srt_path, 'w', encoding='utf-8') as f:
+        for idx, seg in enumerate(segments, start=1):
+            f.write(f"{idx}\n")
+            f.write(f"{_fmt(seg.get('start', 0.0))} --> {_fmt(seg.get('end', 0.0))}\n")
+            f.write(f"{seg.get('text', '').strip()}\n\n")
+    return srt_name
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -107,7 +133,7 @@ def _cleanup_old_files():
 @app.route('/')
 def index():
     return render_template('index.html',
-                           models=config.MODEL_DISPLAY_NAMES,
+                           models=ASR_MODEL_DISPLAY_NAMES,
                            source_languages=config.SOURCE_LANGUAGES)
 
 
@@ -115,26 +141,28 @@ def index():
 def transcribe():
     """Upload file and run selected models."""
     if 'file' not in request.files:
-        flash('No file selected.', 'danger')
+        flash('Файл таңдалмады.', 'danger')
         return redirect(url_for('index'))
 
     uploaded_file = request.files['file']
     if uploaded_file.filename == '':
-        flash('No file selected.', 'danger')
+        flash('Файл таңдалмады.', 'danger')
         return redirect(url_for('index'))
 
     if not _allowed_file(uploaded_file.filename):
-        flash('File type not allowed.', 'danger')
+        flash('Файл түріне рұқсат жоқ.', 'danger')
         return redirect(url_for('index'))
 
     selected_models = request.form.getlist('models')
     if not selected_models:
-        flash('Please select at least one model.', 'warning')
+        flash('Кемінде бір модель таңдаңыз.', 'warning')
         return redirect(url_for('index'))
 
     reference_text = request.form.get('reference', '').strip() or None
     source_language = request.form.get('source_language', 'kk').strip() or 'kk'
     translate_to_kk = bool(request.form.get('translate_to_kk'))
+    apply_denoise = bool(request.form.get('apply_denoise'))
+    apply_normalization = bool(request.form.get('apply_normalization'))
 
     # Save file
     # secure_filename strips non-ASCII (e.g. Cyrillic) characters.  When the
@@ -165,7 +193,7 @@ def transcribe():
     # Prepare audio
     processor = AudioProcessor()
     try:
-        audio_path = processor.prepare_audio(file_path)
+        audio_path = processor.prepare_audio(file_path, denoise=apply_denoise)
     except RuntimeError as exc:
         # FFmpeg not available or extraction failed – try using the raw file
         logger.warning("Audio preparation failed (%s); using raw file.", exc)
@@ -174,15 +202,37 @@ def transcribe():
     # Transcribe with each selected model
     results = []
     for model_key in selected_models:
-        if model_key not in config.MODEL_DISPLAY_NAMES:
+        if model_key not in config.MODEL_DISPLAY_NAMES and model_key not in ASR_MODEL_DISPLAY_NAMES:
             continue
         try:
-            transcriber = _get_transcriber(model_key)
-            result = transcriber.transcribe(audio_path, language=source_language)
+            if model_key in ASR_MODEL_DISPLAY_NAMES:
+                result = _asr_engine.process(
+                    model_key=model_key,
+                    audio_path=audio_path,
+                    language=source_language,
+                    apply_normalization=apply_normalization,
+                )
+            else:
+                transcriber = _get_transcriber(model_key)
+                result = transcriber.transcribe(audio_path, language=source_language)
+                result['text_raw'] = result.get('text', '')
+                detected_lang = result.get('language', source_language) or source_language
+                translation_text = result.get('text', '') if detected_lang == 'kk' else ''
+                if translate_to_kk and detected_lang in config.TRANSLATABLE_LANGUAGES:
+                    try:
+                        from modules.translator import get_translator
+                        translation_text = get_translator().translate(
+                            result.get('text', ''), src=detected_lang
+                        )
+                    except Exception as exc:
+                        logger.warning("Legacy translation failed: %s", exc)
+                result['translation'] = translation_text
         except Exception as exc:
             logger.error("Transcription failed for %s: %s", model_key, exc)
             result = {
                 'text': f'Error: {exc}',
+                'text_raw': '',
+                'translation': '',
                 'segments': [],
                 'duration': 0,
                 'confidence': 0,
@@ -190,7 +240,7 @@ def transcribe():
                 'language': source_language,
             }
 
-        wer_val = cer_val = None
+        wer_val = cer_val = bleu_val = None
         if reference_text and result['text']:
             try:
                 wer_val = calculate_wer(reference_text, result['text'])
@@ -198,19 +248,13 @@ def transcribe():
             except Exception as exc:
                 logger.warning("Metrics calculation failed: %s", exc)
 
-        # Machine translation: translate transcribed text to Kazakh when the
-        # audio is in English or Russian.
         detected_lang = result.get('language', source_language) or source_language
-        translation_text = None
-        if translate_to_kk and detected_lang in config.TRANSLATABLE_LANGUAGES:
-            try:
-                from modules.translator import get_translator
-                translation_text = get_translator().translate(
-                    result['text'], src=detected_lang
-                )
-                logger.info("Translated %s→kk (%d chars)", detected_lang, len(translation_text))
-            except Exception as exc:
-                logger.warning("Translation failed: %s", exc)
+        translation_text = result.get('translation') or ''
+        if reference_text:
+            bleu_source = translation_text or (result['text'] if detected_lang == 'kk' else '')
+            if bleu_source:
+                bleu_val = calculate_bleu(reference_text, bleu_source)
+        subtitle_file = _create_srt_file(uploaded_file.filename, model_key, result.get('segments', []))
 
         record_id = database.save_transcription(
             filename=filename,
@@ -220,6 +264,7 @@ def transcribe():
             confidence=result['confidence'],
             wer=wer_val,
             cer=cer_val,
+            bleu=bleu_val,
             reference=reference_text,
             translation=translation_text,
             source_language=detected_lang,
@@ -227,24 +272,29 @@ def transcribe():
         results.append({
             'id': record_id,
             'model_key': model_key,
-            'model_name': config.MODEL_DISPLAY_NAMES[model_key],
+            'model_name': config.MODEL_DISPLAY_NAMES.get(
+                model_key, ASR_MODEL_DISPLAY_NAMES.get(model_key, model_key)
+            ),
             'text': result['text'],
+            'text_raw': result.get('text_raw'),
             'segments': result['segments'],
             'duration': result['duration'],
             'confidence': result['confidence'],
             'processing_time': result['processing_time'],
             'wer': wer_val,
             'cer': cer_val,
+            'bleu': bleu_val,
             'translation': translation_text,
+            'subtitle_file': subtitle_file,
             'detected_language': detected_lang,
         })
 
     # Warn when every model produced no text (common first-run symptom)
     if results and all(not r['text'] or r['text'].startswith('Error:') for r in results):
         flash(
-            'Все модели вернули пустой результат. '
-            'Убедитесь, что аудио содержит речь и что FFmpeg установлен. '
-            'При первом запуске модели загружаются автоматически — это может занять несколько минут.',
+            'Барлық модель бос нәтиже қайтарды. '
+            'Аудиода сөйлеу бар екенін және FFmpeg орнатылғанын тексеріңіз. '
+            'Алғашқы іске қосуда модельдер жүктелуі мүмкін, бұл бірнеше минут алады.',
             'warning',
         )
 
@@ -264,24 +314,30 @@ def transcribe():
 def result_detail(record_id: int):
     record = database.get_transcription(record_id)
     if record is None:
-        flash('Record not found.', 'danger')
+        flash('Жазба табылмады.', 'danger')
         return redirect(url_for('history'))
     return render_template('results.html',
                            filename=record['filename'],
                            results=[{
-                               'id': record['id'],
-                               'model_key': record['model'],
-                               'model_name': config.MODEL_DISPLAY_NAMES.get(record['model'], record['model']),
-                               'text': record['text'],
-                               'segments': [],
-                               'duration': record['duration'],
-                               'confidence': record['confidence'],
-                               'processing_time': None,
-                               'wer': record['wer'],
-                               'cer': record['cer'],
-                               'translation': record.get('translation'),
-                               'detected_language': record.get('source_language'),
-                           }],
+                                'id': record['id'],
+                                'model_key': record['model'],
+                                'model_name': config.MODEL_DISPLAY_NAMES.get(
+                                    record['model'],
+                                    ASR_MODEL_DISPLAY_NAMES.get(record['model'], record['model']),
+                                ),
+                                'text': record['text'],
+                                'text_raw': None,
+                                'segments': [],
+                                'duration': record['duration'],
+                                'confidence': record['confidence'],
+                                'processing_time': None,
+                                'wer': record['wer'],
+                                'cer': record['cer'],
+                                'bleu': record.get('bleu'),
+                                'translation': record.get('translation'),
+                                'subtitle_file': '',
+                                'detected_language': record.get('source_language'),
+                            }],
                            reference=record.get('reference'),
                            source_language=record.get('source_language', 'kk'),
                            language_names=config.SOURCE_LANGUAGES)
@@ -302,7 +358,7 @@ def export_csv():
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer',
+        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer', 'bleu',
                     'duration', 'confidence', 'created_at'],
         extrasaction='ignore',
     )
@@ -323,13 +379,13 @@ def export_single_csv(record_id: int):
     """Export a single transcription record as CSV."""
     record = database.get_transcription(record_id)
     if record is None:
-        flash('Record not found.', 'danger')
+        flash('Жазба табылмады.', 'danger')
         return redirect(url_for('history'))
 
     output = io.StringIO()
     writer = csv.DictWriter(
         output,
-        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer',
+        fieldnames=['id', 'filename', 'model', 'text', 'wer', 'cer', 'bleu',
                     'duration', 'confidence', 'created_at'],
         extrasaction='ignore',
     )
@@ -342,6 +398,21 @@ def export_single_csv(record_id: int):
         mimetype='text/csv',
         as_attachment=True,
         download_name=f'transcription_{record_id}.csv',
+    )
+
+
+@app.route('/subtitles/<path:srt_name>')
+def download_subtitles(srt_name: str):
+    safe_name = os.path.basename(srt_name)
+    srt_path = os.path.join(config.UPLOAD_FOLDER, safe_name)
+    if not os.path.isfile(srt_path):
+        flash('Субтитр файлы табылмады.', 'danger')
+        return redirect(url_for('history'))
+    return send_file(
+        srt_path,
+        mimetype='application/x-subrip',
+        as_attachment=True,
+        download_name=safe_name,
     )
 
 
