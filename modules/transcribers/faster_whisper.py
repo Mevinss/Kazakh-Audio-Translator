@@ -16,7 +16,14 @@ class FasterWhisperTranscriber(BaseTranscriber):
 
     def _load_model(self):
         if self._model is None:
-            from faster_whisper import WhisperModel
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError as e:
+                logger.error(
+                    "Failed to import faster_whisper. Ensure 'faster-whisper' is installed "
+                    "and all dependencies are compatible. Original error: %s", e
+                )
+                raise
             logger.info("Loading Faster-Whisper %s model…", self.MODEL_SIZE)
             self._model = WhisperModel(
                 self.MODEL_SIZE,
