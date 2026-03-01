@@ -5,6 +5,12 @@ from modules.transcribers.base_transcriber import BaseTranscriber
 
 logger = logging.getLogger(__name__)
 
+# Kazakh initial prompt helps the model produce Kazakh-specific characters
+_KK_INITIAL_PROMPT = (
+    "Қазақстан, сәлеметсіз бе, қалайсыз, рахмет, жақсы, "
+    "әлем, өмір, үкімет, ұлт, білім, ғылым, іс-шара."
+)
+
 
 class FasterWhisperTranscriber(BaseTranscriber):
     """Transcriber using CTranslate2-based Faster-Whisper large-v3 model."""
@@ -43,9 +49,21 @@ class FasterWhisperTranscriber(BaseTranscriber):
         segs, info = self._model.transcribe(
             audio_path,
             language=lang_arg,
+            task='transcribe',
             beam_size=5,
+            best_of=5,
+            temperature=(0.0, 0.2, 0.4),
             vad_filter=True,
+            vad_parameters=dict(
+                min_silence_duration_ms=300,
+                speech_pad_ms=200,
+            ),
             condition_on_previous_text=True,
+            initial_prompt=_KK_INITIAL_PROMPT if lang_arg == 'kk' else None,
+            word_timestamps=True,
+            no_speech_threshold=0.5,
+            compression_ratio_threshold=2.4,
+            log_prob_threshold=-0.8,
         )
         segs = list(segs)  # consume the generator
         elapsed = time.time() - start

@@ -1,5 +1,6 @@
 /* =========================================================
    Kazakh ASR – Frontend JS
+   Қазақ тілі ASR платформасы — JavaScript
    ========================================================= */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -60,10 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       // Show loading state
-      if (loadingOverlay) loadingOverlay.classList.remove('d-none');
+      if (loadingOverlay) loadingOverlay.style.display = 'flex';
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = '⏳ Өңделуде…';
+        submitBtn.style.opacity = '0.7';
       }
     });
   }
@@ -80,8 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (historyTable) {
     const filterInput = document.createElement('input');
     filterInput.type = 'text';
-    filterInput.className = 'form-control form-control-sm mb-2';
-    filterInput.placeholder = 'Файл атауы бойынша іздеу…';
+    filterInput.className = 'filter-input';
+    filterInput.placeholder = '🔍 Файл атауы бойынша іздеу…';
     historyTable.parentElement.insertBefore(filterInput, historyTable);
 
     filterInput.addEventListener('input', () => {

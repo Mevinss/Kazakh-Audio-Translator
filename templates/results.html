@@ -14,8 +14,8 @@
         <span>Нәтижелер салыстыру</span>
       </a>
       <nav>
-        <a href="/">Жаңа файл</a>
-        <a href="/history">Тарих</a>
+        <a href="/">🏠 Жаңа файл</a>
+        <a href="/history">📜 Тарих</a>
       </nav>
     </div>
   </header>
@@ -34,7 +34,7 @@
     <!-- File info -->
     <div class="card">
       <div class="card-body">
-        <h1 style="font-size:1.5rem;font-weight:800;color:#1e293b;margin-bottom:.25rem;">📁 Файл: {{ filename }}</h1>
+        <h1 style="font-size:1.5rem;font-weight:800;color:#0c4a6e;margin-bottom:.25rem;">📁 Файл: {{ filename }}</h1>
         <p style="color:#64748b;font-size:.875rem;">Модельдер нәтижелерінің салыстырмалы кестесі</p>
       </div>
     </div>
@@ -68,7 +68,7 @@
               </td>
               <td>
                 {% if r.confidence %}
-                  <span class="badge badge-green">{{ "%.1f"|format(r.confidence * 100) }}%</span>
+                  <span class="badge {% if r.confidence >= 0.9 %}badge-green{% elif r.confidence >= 0.7 %}badge-amber{% else %}badge-red{% endif %}">{{ "%.1f"|format(r.confidence * 100) }}%</span>
                 {% else %}—{% endif %}
               </td>
               <td>
@@ -103,11 +103,14 @@
     <section class="card">
       <div class="card-header">
         <h2>🎯 {{ r.model_name }}</h2>
+        {% if r.confidence %}
+        <p>Сенімділік: {{ "%.1f"|format(r.confidence * 100) }}%{% if r.processing_time is not none %} · Өңдеу: {{ r.processing_time }} с.{% endif %}</p>
+        {% endif %}
       </div>
       <div class="transcript-block space-y">
         {% if r.text_raw and r.text_raw != r.text %}
         <div>
-          <h3 class="transcript-label transcript-label-muted">Бастапқы транскрипция (нормализациясыз)</h3>
+          <h3 class="transcript-label transcript-label-muted">📄 Бастапқы транскрипция (нормализациясыз)</h3>
           <div class="transcript-box transcript-box-muted">{{ r.text_raw or '—' }}</div>
         </div>
         {% endif %}

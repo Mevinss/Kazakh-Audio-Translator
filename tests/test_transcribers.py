@@ -321,6 +321,30 @@ class TestNormalizer(unittest.TestCase):
         self.assertEqual(norm.normalize('', use_llm=False), '')
         self.assertEqual(norm.normalize('   ', use_llm=False), '')
 
+    def test_normalizer_expanded_spelling(self):
+        """Expanded spelling dictionary should fix more words."""
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm.normalize('казакстан жумыс билим', use_llm=False)
+        self.assertIn('Қазақстан', text)
+        self.assertIn('жұмыс', text)
+        self.assertIn('білім', text)
+
+    def test_normalizer_vowel_harmony(self):
+        """Vowel harmony fixer should correct suffix mismatches."""
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        # Soft-stem word "күн" should take soft plural "дер" not hard "дар"
+        text = norm._fix_vowel_harmony('күндар')
+        self.assertEqual(text, 'күндер')
+
+    def test_normalizer_preserves_correct_harmony(self):
+        """Vowel harmony fixer should not change already correct suffixes."""
+        from modules.normalizer import KazakhNormalizer
+        norm = KazakhNormalizer()
+        text = norm._fix_vowel_harmony('баллар')
+        self.assertEqual(text, 'баллар')
+
 
 # ---------------------------------------------------------------------------
 # AudioProcessor tests (mocked FFmpeg)
