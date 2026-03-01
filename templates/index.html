@@ -14,8 +14,8 @@
         <span>Қазақ ASR платформасы</span>
       </a>
       <nav>
-        <a href="/">Басты бет</a>
-        <a href="/history">Тарих</a>
+        <a href="/">🏠 Басты бет</a>
+        <a href="/history">📜 Тарих</a>
       </nav>
     </div>
   </header>
@@ -34,11 +34,21 @@
     <section class="card">
       <div class="card-body">
         <div style="text-align:center;margin-bottom:2rem;">
-          <h1 style="font-size:1.875rem;font-weight:800;color:#1e293b;margin-bottom:.5rem;">Қазақ тілді субтитр салыстыру</h1>
+          <h1 style="font-size:2rem;font-weight:800;color:#0c4a6e;margin-bottom:.75rem;">🇰🇿 Қазақ тілді субтитр салыстыру</h1>
           <p style="color:#64748b;font-size:1.125rem;">Аудио/видео файлды жүктеп, үш ASR модельдің нәтижелерін салыстырыңыз</p>
         </div>
 
-        <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y">
+        <div class="install-banner" id="installBanner" style="display:none;">
+          <h3>⚠️ Модельдерді орнату қажет</h3>
+          <p>ASR модельдері жұмыс істеу үшін келесі пакеттерді орнатыңыз:</p>
+          <p style="margin-top:.5rem;">
+            <code>pip install openai-whisper</code> — Whisper Base және Medium модельдері үшін<br>
+            <code>pip install faster-whisper</code> — Faster-Whisper Large-v3 моделі үшін<br>
+            <code>apt install ffmpeg</code> — Аудио өңдеу үшін
+          </p>
+        </div>
+
+        <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y" id="transcribeForm">
           <!-- File Upload -->
           <div>
             <label for="fileInput" class="form-label">📁 Аудио/видео файлды жүктеу</label>
@@ -74,19 +84,19 @@
               <input type="checkbox" name="apply_denoise" value="1">
               <div>
                 <div class="option-title">🔇 Шуды тазарту</div>
-                <div class="option-desc">Фондық шуды азайту</div>
+                <div class="option-desc">Фондық шуды азайтып, дауыс анықтауды жақсартады</div>
               </div>
             </label>
             <label class="option-card">
               <input type="checkbox" name="apply_normalization" value="1" checked>
               <div>
-                <div class="option-title">✍️ Нормализация</div>
-                <div class="option-desc">Қазақ тілі грамматикасын түзету</div>
+                <div class="option-title">✍️ Қазақ тілі нормализациясы</div>
+                <div class="option-desc">Грамматиканы, тыныс белгілерін және емлені түзетеді</div>
               </div>
             </label>
           </div>
 
-          <button type="submit" class="btn-primary">🚀 Нәтижені салыстыру</button>
+          <button type="submit" id="submitBtn" class="btn-primary">🚀 Нәтижені салыстыру</button>
         </form>
       </div>
     </section>
@@ -96,22 +106,29 @@
       <div class="info-card">
         <div class="emoji">📊</div>
         <h3>Дәлдік метрикалары</h3>
-        <p>WER, CER, BLEU көрсеткіштерімен модельдерді салыстырыңыз</p>
+        <p>WER, CER, BLEU көрсеткіштерімен модельдердің сапасын бағалаңыз</p>
       </div>
       <div class="info-card">
         <div class="emoji">📝</div>
         <h3>Субтитр жасау</h3>
-        <p>SRT форматындағы субтитрлерді жүктеп алыңыз</p>
+        <p>SRT форматындағы субтитрлерді автоматты түрде жасап, жүктеп алыңыз</p>
       </div>
       <div class="info-card">
         <div class="emoji">✍️</div>
         <h3>Мәтін нормализациясы</h3>
-        <p>Қазақ тілі ережелеріне сай грамматиканы түзету</p>
+        <p>Қазақ тілі ережелеріне сай грамматиканы, емлені және үндестік заңын түзетеді</p>
       </div>
     </section>
 
     </div>
   </main>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+    <div class="spinner"></div>
+    <div class="loading-text">⏳ Аудио өңделуде...</div>
+    <div class="loading-hint">Алғашқы іске қосуда модельдер жүктелуі мүмкін, бұл бірнеше минут алады</div>
+  </div>
 
   <footer class="site-footer">
     <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
