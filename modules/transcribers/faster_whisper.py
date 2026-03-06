@@ -69,7 +69,12 @@ class FasterWhisperTranscriber(BaseTranscriber):
         elapsed = time.time() - start
 
         segments = [
-            {'start': s.start, 'end': s.end, 'text': s.text.strip()}
+            {
+                'start': s.start,
+                'end': s.end,
+                'text': s.text.strip(),
+                'confidence': round(max(0.0, min(1.0, 1.0 + getattr(s, 'avg_logprob', -1.0))), 4),
+            }
             for s in segs
         ]
 
