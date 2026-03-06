@@ -266,6 +266,8 @@ def transcribe():
             'duration': result['duration'],
             'confidence': result['confidence'],
             'processing_time': result['processing_time'],
+            'rtf': round(result['processing_time'] / result['duration'], 3) if result['duration'] > 0 else None,
+            'language': result.get('language', 'kk'),
             'wer': wer_val,
             'cer': cer_val,
             'bleu': bleu_val,
@@ -390,6 +392,57 @@ def download_subtitles(srt_name: str):
         as_attachment=True,
         download_name=safe_name,
     )
+
+
+# ---------------------------------------------------------------------------
+# Test route for UI preview (development only)
+# ---------------------------------------------------------------------------
+@app.route('/test-results')
+def test_results_preview():
+    """Demo endpoint to preview results page with mock data."""
+    mock_results = [
+        {
+            'id': 1, 'model_key': 'whisper_base', 'model_name': 'Whisper Base (74M)',
+            'text': 'Қазақстан, бүгін таңда маңызды жаңалық болды. Астана қаласында халықаралық конференция ашылды.',
+            'text_raw': 'Казакстан бугун тангда манызды жангалык болды астана каласында халыкаралык конференция ашылды',
+            'segments': [
+                {'start': 0.0, 'end': 3.5, 'text': 'Қазақстан, бүгін таңда маңызды жаңалық болды.', 'confidence': 0.87},
+                {'start': 3.5, 'end': 7.2, 'text': 'Астана қаласында халықаралық конференция ашылды.', 'confidence': 0.92},
+                {'start': 7.2, 'end': 11.0, 'text': 'Оған дүние жүзінің мемлекет басшылары қатысты.', 'confidence': 0.79},
+                {'start': 11.0, 'end': 15.5, 'text': 'Конференция бейбітшілік пен ынтымақтастыққа арналды.', 'confidence': 0.84},
+            ],
+            'duration': 15.5, 'confidence': 0.855, 'processing_time': 4.2, 'rtf': 0.27, 'language': 'kk',
+            'wer': 0.12, 'cer': 0.05, 'bleu': 0.72, 'subtitle_file': '',
+        },
+        {
+            'id': 2, 'model_key': 'whisper_medium', 'model_name': 'Whisper Medium (769M)',
+            'text': 'Қазақстан, бүгін таңда өте маңызды жаңалық болды. Астана қаласында ірі халықаралық конференция ашылды.',
+            'text_raw': None,
+            'segments': [
+                {'start': 0.0, 'end': 3.5, 'text': 'Қазақстан, бүгін таңда өте маңызды жаңалық болды.', 'confidence': 0.91},
+                {'start': 3.5, 'end': 7.2, 'text': 'Астана қаласында ірі халықаралық конференция ашылды.', 'confidence': 0.95},
+                {'start': 7.2, 'end': 11.0, 'text': 'Оған дүние жүзінің мемлекет басшылары қатысты.', 'confidence': 0.88},
+                {'start': 11.0, 'end': 15.5, 'text': 'Конференция бейбітшілік пен ынтымақтастыққа арналды.', 'confidence': 0.93},
+            ],
+            'duration': 15.5, 'confidence': 0.918, 'processing_time': 12.8, 'rtf': 0.83, 'language': 'kk',
+            'wer': 0.08, 'cer': 0.03, 'bleu': 0.84, 'subtitle_file': '',
+        },
+        {
+            'id': 3, 'model_key': 'faster_whisper', 'model_name': 'Faster-Whisper Large-v3 (1550M)',
+            'text': 'Қазақстан, бүгін таңда өте маңызды жаңалық болды. Астана қаласында ірі халықаралық конференция ресми ашылды.',
+            'text_raw': None,
+            'segments': [
+                {'start': 0.0, 'end': 3.5, 'text': 'Қазақстан, бүгін таңда өте маңызды жаңалық болды.', 'confidence': 0.94},
+                {'start': 3.5, 'end': 7.2, 'text': 'Астана қаласында ірі халықаралық конференция ресми ашылды.', 'confidence': 0.96},
+                {'start': 7.2, 'end': 11.0, 'text': 'Оған дүние жүзінің мемлекет басшылары қатысты.', 'confidence': 0.91},
+                {'start': 11.0, 'end': 15.5, 'text': 'Конференция бейбітшілік пен ынтымақтастыққа арналды.', 'confidence': 0.97},
+            ],
+            'duration': 15.5, 'confidence': 0.945, 'processing_time': 22.1, 'rtf': 1.43, 'language': 'kk',
+            'wer': 0.06, 'cer': 0.02, 'bleu': 0.89, 'subtitle_file': '',
+        },
+    ]
+    return render_template('results.html', filename='test_audio.mp3',
+                           results=mock_results, reference=None)
 
 
 # ---------------------------------------------------------------------------
