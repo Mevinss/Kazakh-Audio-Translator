@@ -3,52 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Нәтижелер | Қазақ ASR</title>
+  <title>Нәтижелер | Қазақ ASR Аналитика</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
-<body>
+<body class="page-results">
+
   <header class="site-header">
-    <div class="inner" style="max-width:1200px;">
+    <div class="header-inner">
       <a href="/" class="brand">
-        <span class="icon">📊</span>
-        <span>Нәтижелер салыстыру</span>
+        <span class="brand-icon">📊</span>
+        <span class="brand-name">ASR Аналитика</span>
       </a>
-      <nav>
-        <a href="/">🏠 Жаңа файл</a>
-        <a href="/history">📜 Тарих</a>
+      <nav class="header-nav">
+        <a href="/" class="nav-link">🏠 Жаңа файл</a>
+        <a href="/history" class="nav-link">📜 Тарих</a>
+        <a href="/export" class="nav-link nav-link-outline">📤 CSV</a>
       </nav>
     </div>
   </header>
 
-  <main class="container-lg" style="padding-top:2.5rem;padding-bottom:2.5rem;">
-    <div class="space-y-lg">
+  <main class="results-main">
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}
-        <div class="flash {% if cat == 'danger' %}flash-danger{% elif cat == 'warning' %}flash-warning{% else %}flash-info{% endif %}">
-          {{ msg }}
-        </div>
-      {% endfor %}
+      {% if messages %}
+      <div class="flash-container">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
     {% endwith %}
 
-    <!-- File info -->
-    <div class="card">
-      <div class="card-body">
-        <h1 style="font-size:1.5rem;font-weight:800;color:#0c4a6e;margin-bottom:.25rem;">📁 Файл: {{ filename }}</h1>
-        <p style="color:#64748b;font-size:.875rem;">Модельдер нәтижелерінің салыстырмалы кестесі</p>
+    <!-- ===== FILE INFO BAR ===== -->
+    <div class="file-info-bar">
+      <div class="file-info-name">
+        <span class="file-icon">🎵</span>
+        <span class="file-name">{{ filename }}</span>
+      </div>
+      <div class="file-info-meta">
+        {% if results %}
+          {% set best = results | sort(attribute='confidence', reverse=true) | first %}
+          <span class="file-meta-item">⏱ {{ best.duration | round(1) }}с</span>
+          <span class="file-meta-item">🤖 {{ results | length }} модель</span>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Comparison Table -->
-    <section class="card">
-      <div class="card-header">
-        <h2>📋 Салыстыру кестесі</h2>
+    <!-- ===== METRICS TILES ===== -->
+    <div class="metrics-tiles">
+      {% for r in results %}
+      <div class="metrics-tile-group">
+        <div class="tile-group-label">{{ r.model_name }}</div>
+        <div class="tile-group-items">
+          <div class="metric-tile tile-blue">
+            <div class="tile-label">RTF</div>
+            <div class="tile-value">
+              {% if r.rtf is not none %}{{ r.rtf }}×{% else %}—{% endif %}
+            </div>
+            <div class="tile-desc">Нақты уақыт коэффициенті</div>
+          </div>
+          <div class="metric-tile tile-indigo">
+            <div class="tile-label">Кідіріс</div>
+            <div class="tile-value">
+              {% if r.processing_time is not none %}{{ r.processing_time }}с{% else %}—{% endif %}
+            </div>
+            <div class="tile-desc">Өңдеу уақыты</div>
+          </div>
+          <div class="metric-tile {% if r.confidence >= 0.9 %}tile-green{% elif r.confidence >= 0.7 %}tile-amber{% else %}tile-red{% endif %}">
+            <div class="tile-label">Сенімділік</div>
+            <div class="tile-value">
+              {% if r.confidence %}{{ "%.0f"|format(r.confidence * 100) }}%{% else %}—{% endif %}
+            </div>
+            <div class="tile-desc">Орташа дәлдік</div>
+          </div>
+          <div class="metric-tile tile-violet">
+            <div class="tile-label">Тіл</div>
+            <div class="tile-value">{{ (r.language or 'kk') | upper }}</div>
+            <div class="tile-desc">Анықталған тіл</div>
+          </div>
+          {% if r.wer is not none %}
+          <div class="metric-tile {% if r.wer < 0.2 %}tile-green{% elif r.wer < 0.5 %}tile-amber{% else %}tile-red{% endif %}">
+            <div class="tile-label">WER</div>
+            <div class="tile-value">{{ "%.1f"|format(r.wer * 100) }}%</div>
+            <div class="tile-desc">Сөз қатесі</div>
+          </div>
+          {% endif %}
+        </div>
       </div>
-      <div class="results-table">
-        <table>
+      {% endfor %}
+    </div>
+
+    <!-- ===== BENCHMARK TABLE ===== -->
+    {% if results | length > 1 %}
+    <section class="dashboard-card">
+      <div class="card-header-bar">
+        <h2 class="card-header-title">📋 Модельдер салыстырмалы кестесі</h2>
+      </div>
+      <div class="benchmark-table-wrap">
+        <table class="benchmark-table">
           <thead>
             <tr>
               <th>Модель</th>
+              <th>RTF</th>
               <th>Өңдеу уақыты</th>
               <th>Сенімділік</th>
               <th>WER</th>
@@ -60,10 +120,15 @@
           <tbody>
             {% for r in results %}
             <tr>
-              <td class="model-name">{{ r.model_name }}</td>
+              <td class="td-model">{{ r.model_name }}</td>
+              <td>
+                {% if r.rtf is not none %}
+                  <span class="badge {% if r.rtf < 1 %}badge-green{% elif r.rtf < 2 %}badge-amber{% else %}badge-red{% endif %}">{{ r.rtf }}×</span>
+                {% else %}—{% endif %}
+              </td>
               <td>
                 {% if r.processing_time is not none %}
-                  <span class="badge badge-slate">⏱ {{ r.processing_time }} с.</span>
+                  <span class="badge badge-slate">{{ r.processing_time }}с</span>
                 {% else %}—{% endif %}
               </td>
               <td>
@@ -88,7 +153,7 @@
               </td>
               <td>
                 {% if r.subtitle_file %}
-                <a class="btn-download" href="/subtitles/{{ r.subtitle_file }}">📥 .srt</a>
+                  <a class="btn-dl" href="/subtitles/{{ r.subtitle_file }}">📥 SRT</a>
                 {% else %}—{% endif %}
               </td>
             </tr>
@@ -97,48 +162,128 @@
         </table>
       </div>
     </section>
+    {% endif %}
 
-    <!-- Transcription Results -->
-    {% for r in results %}
-    <section class="card">
-      <div class="card-header">
-        <h2>🎯 {{ r.model_name }}</h2>
-        {% if r.confidence %}
-        <p>Сенімділік: {{ "%.1f"|format(r.confidence * 100) }}%{% if r.processing_time is not none %} · Өңдеу: {{ r.processing_time }} с.{% endif %}</p>
-        {% endif %}
+    <!-- ===== TIME-SERIES ACCURACY CHART ===== -->
+    <section class="dashboard-card">
+      <div class="card-header-bar">
+        <h2 class="card-header-title">📈 Сенімділік уақыт сериясы</h2>
+        <p class="card-header-sub">Сегменттер бойынша сенімділік көрсеткіші (%)</p>
       </div>
-      <div class="transcript-block space-y">
-        {% if r.text_raw and r.text_raw != r.text %}
-        <div>
-          <h3 class="transcript-label transcript-label-muted">📄 Бастапқы транскрипция (нормализациясыз)</h3>
-          <div class="transcript-box transcript-box-muted">{{ r.text_raw or '—' }}</div>
-        </div>
-        {% endif %}
-        <div>
-          <h3 class="transcript-label transcript-label-green">✅ Нормализацияланған мәтін</h3>
-          <div class="transcript-box transcript-box-green">{{ r.text or '—' }}</div>
-        </div>
+      <div class="chart-container">
+        <canvas id="accuracyChart" height="100"></canvas>
       </div>
     </section>
-    {% endfor %}
 
-    {% if reference %}
-    <section class="reference-block">
-      <h3>📌 Эталон мәтін</h3>
-      <p>{{ reference }}</p>
+    <!-- ===== TRANSCRIPTION COLUMNS ===== -->
+    <section class="dashboard-card">
+      <div class="card-header-bar">
+        <h2 class="card-header-title">🎯 Транскрипция нәтижелері</h2>
+        <p class="card-header-sub">Уақыт белгілері бар сегменттер</p>
+      </div>
+      <div class="transcription-columns" style="--col-count: {{ results | length }}">
+        {% for r in results %}
+        <div class="transcript-col">
+          <div class="transcript-col-header">
+            <span class="transcript-col-name">{{ r.model_name }}</span>
+            {% if r.confidence %}
+            <span class="transcript-col-conf {% if r.confidence >= 0.9 %}conf-green{% elif r.confidence >= 0.7 %}conf-amber{% else %}conf-red{% endif %}">
+              {{ "%.0f"|format(r.confidence * 100) }}%
+            </span>
+            {% endif %}
+          </div>
+
+          <!-- Raw vs Normalized Toggle -->
+          {% if r.text_raw and r.text_raw != r.text %}
+          <div class="text-toggle-tabs" data-model="{{ loop.index }}">
+            <button class="text-tab active" data-tab="normalized-{{ loop.index }}">✅ Нормализацияланған</button>
+            <button class="text-tab" data-tab="raw-{{ loop.index }}">📄 Бастапқы</button>
+          </div>
+          {% endif %}
+
+          <!-- Segments with timestamps -->
+          {% if r.segments %}
+          <div class="segments-list" id="normalized-{{ loop.index }}">
+            {% for seg in r.segments %}
+            <div class="segment-row">
+              <span class="segment-ts">{{ "%02d:%02d"|format((seg.start // 60)|int, (seg.start % 60)|int) }}–{{ "%02d:%02d"|format((seg.end // 60)|int, (seg.end % 60)|int) }}</span>
+              <span class="segment-text">{{ seg.text }}</span>
+              {% if seg.confidence is defined and seg.confidence %}
+              <span class="segment-conf" title="Сенімділік">{{ "%.0f"|format(seg.confidence * 100) }}%</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% if r.text_raw and r.text_raw != r.text %}
+          <div class="segments-list segments-raw" id="raw-{{ loop.index }}" style="display:none;">
+            <div class="raw-text-block">{{ r.text_raw }}</div>
+          </div>
+          {% endif %}
+          {% else %}
+          <!-- Fallback: show full text if no segments -->
+          <div class="segments-list">
+            <div class="full-text-block">{{ r.text or '—' }}</div>
+          </div>
+          {% endif %}
+
+          {% if r.subtitle_file %}
+          <div class="transcript-col-footer">
+            <a class="btn-dl-sm" href="/subtitles/{{ r.subtitle_file }}">📥 SRT жүктеу</a>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <!-- ===== IDEAL / BEST TEXT PANEL ===== -->
+    {% if results %}
+    {% set best_result = results | sort(attribute='confidence', reverse=true) | first %}
+    <section class="dashboard-card ideal-text-card">
+      <div class="card-header-bar ideal-header">
+        <div>
+          <h2 class="card-header-title">⭐ Ең үздік нормализацияланған мәтін</h2>
+          <p class="card-header-sub">{{ best_result.model_name }} · Сенімділік: {{ "%.0f"|format(best_result.confidence * 100) if best_result.confidence else '—' }}%</p>
+        </div>
+        <button class="btn-copy" id="copyIdealBtn" data-target="idealText">
+          <span class="copy-icon">📋</span>
+          <span class="copy-label">Көшіру</span>
+        </button>
+      </div>
+      <div class="ideal-text-body" id="idealText">{{ best_result.text or '—' }}</div>
     </section>
     {% endif %}
 
-    <!-- Export -->
-    <div class="text-center">
-      <a href="/export" class="btn-outline">📤 CSV экспорт</a>
+    <!-- ===== REFERENCE TEXT ===== -->
+    {% if reference %}
+    <section class="dashboard-card reference-card">
+      <div class="card-header-bar">
+        <h2 class="card-header-title">📌 Эталон мәтін</h2>
+      </div>
+      <div class="reference-text-body">{{ reference }}</div>
+    </section>
+    {% endif %}
+
+    <!-- ===== EXPORT ===== -->
+    <div class="export-row">
+      <a href="/export" class="btn-outline">📤 Барлық тарихты CSV-ге экспорттау</a>
+      {% for r in results %}
+      {% if r.id %}
+      <a href="/export/{{ r.id }}" class="btn-outline">📄 {{ r.model_name }} — CSV</a>
+      {% endif %}
+      {% endfor %}
     </div>
 
-    </div>
   </main>
 
   <footer class="site-footer">
-    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+    <p>© 2024 Қазақ ASR — Сөйлеуді мәтінге аудару аналитикалық платформасы</p>
   </footer>
+
+  <!-- Chart Data (injected from server) -->
+  <script>
+    const CHART_DATA = {{ results | tojson }};
+  </script>
+  <script src="/static/js/main.js"></script>
 </body>
 </html>

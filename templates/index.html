@@ -3,135 +3,214 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Қазақ тілі ASR | Субтитр салыстыру платформасы</title>
+  <title>Қазақ тілі ASR | Сөйлеуді мәтінге аудару платформасы</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
+<body class="page-index">
+
   <header class="site-header">
-    <div class="inner">
+    <div class="header-inner">
       <a href="/" class="brand">
-        <span class="icon">🎙️</span>
-        <span>Қазақ ASR платформасы</span>
+        <span class="brand-icon">🎙️</span>
+        <span class="brand-name">Қазақ ASR</span>
+        <span class="brand-badge">v3.0</span>
       </a>
-      <nav>
-        <a href="/">🏠 Басты бет</a>
-        <a href="/history">📜 Тарих</a>
+      <nav class="header-nav">
+        <a href="/" class="nav-link nav-link-active">🏠 Басты бет</a>
+        <a href="/history" class="nav-link">📜 Тарих</a>
       </nav>
     </div>
   </header>
 
-  <main class="container" style="padding-top:2.5rem;padding-bottom:2.5rem;">
-    <div class="space-y-lg">
+  <main class="index-main">
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}
-        <div class="flash {% if cat == 'danger' %}flash-danger{% elif cat == 'warning' %}flash-warning{% else %}flash-info{% endif %}">
-          {{ msg }}
-        </div>
-      {% endfor %}
+      {% if messages %}
+      <div class="flash-container">
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
     {% endwith %}
 
-    <section class="card">
-      <div class="card-body">
-        <div style="text-align:center;margin-bottom:2rem;">
-          <h1 style="font-size:2rem;font-weight:800;color:#0c4a6e;margin-bottom:.75rem;">🇰🇿 Қазақ тілді субтитр салыстыру</h1>
-          <p style="color:#64748b;font-size:1.125rem;">Аудио/видео файлды жүктеп, үш ASR модельдің нәтижелерін салыстырыңыз</p>
-        </div>
+    <div class="index-layout">
 
-        <div class="install-banner" id="installBanner" style="display:none;">
-          <h3>⚠️ Модельдерді орнату қажет</h3>
-          <p>ASR модельдері жұмыс істеу үшін келесі пакеттерді орнатыңыз:</p>
-          <p style="margin-top:.5rem;">
-            <code>pip install openai-whisper</code> — Whisper Base және Medium модельдері үшін<br>
-            <code>pip install faster-whisper</code> — Faster-Whisper Large-v3 моделі үшін<br>
-            <code>apt install ffmpeg</code> — Аудио өңдеу үшін
-          </p>
-        </div>
-
-        <form method="POST" action="/transcribe" enctype="multipart/form-data" class="space-y" id="transcribeForm">
-          <!-- File Upload -->
-          <div>
-            <label for="fileInput" class="form-label">📁 Аудио/видео файлды жүктеу</label>
-            <input id="fileInput" name="file" required type="file"
-                   accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm"
-                   class="form-file">
-            <p class="form-hint">MP3, WAV, OGG, FLAC, M4A, MP4, AVI, MKV, MOV, WebM (макс. 500 МБ)</p>
+      <!-- ===== LEFT PANEL: Upload Form ===== -->
+      <aside class="index-sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-hero">
+            <h1 class="sidebar-title">🇰🇿 Сөйлеуді мәтінге аудару</h1>
+            <p class="sidebar-subtitle">Аудио/видео файлды жүктеп, үш ASR модельдің нәтижелерін салыстырыңыз</p>
           </div>
 
-          <!-- Models -->
-          <div>
-            <p class="form-label">🤖 Модельдерді таңдаңыз</p>
-            <div class="model-grid">
-              {% for key, name in models.items() %}
-              <label class="check-card">
-                <input type="checkbox" name="models" value="{{ key }}" checked>
-                <span>{{ name }}</span>
+          <div id="installBanner" class="install-banner" style="display:none;">
+            <p class="install-title">⚠️ Модельдерді орнату қажет</p>
+            <p><code>pip install openai-whisper faster-whisper</code></p>
+          </div>
+
+          <form method="POST" action="/transcribe" enctype="multipart/form-data" id="transcribeForm" class="upload-form">
+
+            <!-- File Upload Zone -->
+            <div class="form-section">
+              <label class="form-label">📁 Аудио/видео файлды жүктеу</label>
+              <div class="drop-zone-modern" id="dropZoneModern">
+                <div class="drop-zone-content" id="dropZoneContent">
+                  <div class="drop-zone-icon">🎵</div>
+                  <p class="drop-zone-primary">Файлды осында апарып тастаңыз</p>
+                  <p class="drop-zone-secondary">немесе таңдау үшін басыңыз</p>
+                  <p class="drop-zone-formats">MP3 · WAV · OGG · FLAC · M4A · MP4 · AVI · MKV</p>
+                </div>
+                <input id="fileInput" name="file" required type="file"
+                       accept=".mp3,.wav,.ogg,.flac,.m4a,.mp4,.avi,.mkv,.mov,.webm"
+                       class="drop-zone-input">
+              </div>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="form-section">
+              <label class="form-label">🤖 Модельдерді таңдаңыз</label>
+              <div class="model-list">
+                {% for key, name in models.items() %}
+                <label class="model-checkbox-card">
+                  <input type="checkbox" name="models" value="{{ key }}" checked class="model-checkbox">
+                  <div class="model-checkbox-body">
+                    <div class="model-checkbox-icon">
+                      {% if loop.index == 1 %}🔬{% elif loop.index == 2 %}🧠{% else %}⚡{% endif %}
+                    </div>
+                    <div class="model-checkbox-info">
+                      <span class="model-checkbox-name">{{ name }}</span>
+                      <span class="model-checkbox-desc">
+                        {% if loop.index == 1 %}Базалық, жылдам{% elif loop.index == 2 %}Орташа, дәл{% else %}Large-v3, жоғары дәлдік{% endif %}
+                      </span>
+                    </div>
+                    <div class="model-checkbox-check" aria-hidden="true">✓</div>
+                  </div>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Reference Text -->
+            <div class="form-section">
+              <label for="reference" class="form-label">
+                📝 Эталон мәтін
+                <span class="form-label-optional">(WER/CER/BLEU үшін, міндетті емес)</span>
               </label>
-              {% endfor %}
+              <textarea id="reference" name="reference" rows="3" class="form-textarea"
+                        placeholder="Нақты транскрипцияны енгізіп, дәлдікті бағалаңыз…"></textarea>
+            </div>
+
+            <!-- Processing Options -->
+            <div class="form-section">
+              <label class="form-label">⚙️ Өңдеу параметрлері</label>
+              <div class="options-row">
+                <label class="option-toggle">
+                  <input type="checkbox" name="apply_denoise" value="1">
+                  <span class="toggle-track"></span>
+                  <span class="toggle-label">🔇 Шуды тазарту</span>
+                </label>
+                <label class="option-toggle">
+                  <input type="checkbox" name="apply_normalization" value="1" checked>
+                  <span class="toggle-track"></span>
+                  <span class="toggle-label">✍️ Мәтін нормализациясы</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">
+              <span class="btn-submit-icon">🚀</span>
+              <span class="btn-submit-text">Транскрипцияны бастау</span>
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- ===== RIGHT PANEL: Features ===== -->
+      <div class="index-features">
+        <div class="features-header">
+          <h2 class="features-title">Платформа мүмкіндіктері</h2>
+          <p class="features-subtitle">Қазақ тілінде сөйлеуді тану үшін кәсіби аналитика</p>
+        </div>
+
+        <div class="features-grid">
+          <div class="feature-card feature-blue">
+            <div class="feature-icon">📊</div>
+            <h3 class="feature-title">Уақыт сериялы талдау</h3>
+            <p class="feature-desc">WER және сенімділік көрсеткіштерінің аудио ұзақтығы бойынша динамикалық графигі</p>
+          </div>
+          <div class="feature-card feature-indigo">
+            <div class="feature-icon">🔄</div>
+            <h3 class="feature-title">Үш модель салыстыру</h3>
+            <p class="feature-desc">Whisper Base, Medium және Large-v3 модельдерінің нәтижелерін бір мезгілде салыстырыңыз</p>
+          </div>
+          <div class="feature-card feature-violet">
+            <div class="feature-icon">⏱️</div>
+            <h3 class="feature-title">Уақыт белгілері</h3>
+            <p class="feature-desc">Әр сегмент үшін 00:00–00:04 форматындағы нақты уақыт белгілері</p>
+          </div>
+          <div class="feature-card feature-teal">
+            <div class="feature-icon">✍️</div>
+            <h3 class="feature-title">Мәтін нормализациясы</h3>
+            <p class="feature-desc">Грамматика, тыныс белгілер және үндестік заңын автоматты түзету</p>
+          </div>
+          <div class="feature-card feature-green">
+            <div class="feature-icon">📝</div>
+            <h3 class="feature-title">SRT субтитрлер</h3>
+            <p class="feature-desc">Кез келген видео ойнатқышқа арналған SRT форматын бір кликпен жүктеп алыңыз</p>
+          </div>
+          <div class="feature-card feature-amber">
+            <div class="feature-icon">🇰🇿</div>
+            <h3 class="feature-title">Қазақ тіліне бейімдеу</h3>
+            <p class="feature-desc">ә, і, ң, ғ, қ, ұ, ү сияқты қазақ әліпбиінің арнайы таңбаларын дұрыс тану</p>
+          </div>
+        </div>
+
+        <div class="metrics-preview">
+          <div class="metrics-preview-title">Нақты уақыттағы метрикалар</div>
+          <div class="metrics-preview-row">
+            <div class="metric-preview-item">
+              <span class="metric-preview-label">RTF</span>
+              <span class="metric-preview-value metric-blue">0.3×</span>
+            </div>
+            <div class="metric-preview-item">
+              <span class="metric-preview-label">WER</span>
+              <span class="metric-preview-value metric-green">&lt;15%</span>
+            </div>
+            <div class="metric-preview-item">
+              <span class="metric-preview-label">Кідіріс</span>
+              <span class="metric-preview-value metric-blue">1.2с</span>
+            </div>
+            <div class="metric-preview-item">
+              <span class="metric-preview-label">Тіл</span>
+              <span class="metric-preview-value metric-violet">KK 98%</span>
             </div>
           </div>
-
-          <!-- Reference text -->
-          <div>
-            <label for="reference" class="form-label">📝 Эталон мәтін (WER/CER/BLEU үшін)</label>
-            <textarea id="reference" name="reference" rows="3" class="form-textarea"
-                      placeholder="Қосымша: нақты мәтінді енгізіп, модельдердің дәлдігін бағалаңыз"></textarea>
-          </div>
-
-          <!-- Options -->
-          <div class="option-grid">
-            <label class="option-card">
-              <input type="checkbox" name="apply_denoise" value="1">
-              <div>
-                <div class="option-title">🔇 Шуды тазарту</div>
-                <div class="option-desc">Фондық шуды азайтып, дауыс анықтауды жақсартады</div>
-              </div>
-            </label>
-            <label class="option-card">
-              <input type="checkbox" name="apply_normalization" value="1" checked>
-              <div>
-                <div class="option-title">✍️ Қазақ тілі нормализациясы</div>
-                <div class="option-desc">Грамматиканы, тыныс белгілерін және емлені түзетеді</div>
-              </div>
-            </label>
-          </div>
-
-          <button type="submit" id="submitBtn" class="btn-primary">🚀 Нәтижені салыстыру</button>
-        </form>
+        </div>
       </div>
-    </section>
-
-    <!-- Info Cards -->
-    <section class="info-grid">
-      <div class="info-card">
-        <div class="emoji">📊</div>
-        <h3>Дәлдік метрикалары</h3>
-        <p>WER, CER, BLEU көрсеткіштерімен модельдердің сапасын бағалаңыз</p>
-      </div>
-      <div class="info-card">
-        <div class="emoji">📝</div>
-        <h3>Субтитр жасау</h3>
-        <p>SRT форматындағы субтитрлерді автоматты түрде жасап, жүктеп алыңыз</p>
-      </div>
-      <div class="info-card">
-        <div class="emoji">✍️</div>
-        <h3>Мәтін нормализациясы</h3>
-        <p>Қазақ тілі ережелеріне сай грамматиканы, емлені және үндестік заңын түзетеді</p>
-      </div>
-    </section>
 
     </div>
   </main>
 
   <!-- Loading overlay -->
   <div class="loading-overlay" id="loadingOverlay" style="display:none;">
-    <div class="spinner"></div>
-    <div class="loading-text">⏳ Аудио өңделуде...</div>
-    <div class="loading-hint">Алғашқы іске қосуда модельдер жүктелуі мүмкін, бұл бірнеше минут алады</div>
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-text">Аудио өңделуде…</div>
+      <div class="loading-subtext">Алғашқы іске қосуда модельдер жүктелуі мүмкін</div>
+      <div class="loading-steps">
+        <div class="loading-step active" id="step1">🎵 Аудио дайындау</div>
+        <div class="loading-step" id="step2">🤖 Транскрипциялау</div>
+        <div class="loading-step" id="step3">✍️ Нормализациялау</div>
+      </div>
+    </div>
   </div>
 
   <footer class="site-footer">
-    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+    <p>© 2024 Қазақ ASR — Сөйлеуді мәтінге аудару аналитикалық платформасы</p>
   </footer>
 
   <script src="/static/js/main.js"></script>
