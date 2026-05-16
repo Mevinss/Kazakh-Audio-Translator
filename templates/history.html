@@ -4,23 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Тарих | Қазақ ASR</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <header class="site-header">
-    <div class="inner">
+    <div class="header-inner">
       <a href="/" class="brand">
-        <span class="icon">📜</span>
-        <span>Транскрипция тарихы</span>
+        <span class="brand-icon">📜</span>
+        <span class="brand-name">Транскрипция тарихы</span>
       </a>
-      <nav>
-        <a href="/">🏠 Басты бет</a>
-        <a href="/export">📤 CSV экспорт</a>
+      <nav class="header-nav">
+        <a href="/" class="nav-link">🏠 Басты бет</a>
+        <a href="/export" class="nav-link nav-link-outline">📤 CSV экспорт</a>
       </nav>
     </div>
   </header>
 
-  <main class="container" style="padding-top:2.5rem;padding-bottom:2.5rem;">
+  <main class="container" style="padding-top:2rem;padding-bottom:3rem;">
     <div class="space-y-lg">
 
     {% if records %}
@@ -60,7 +63,7 @@
               </td>
               <td style="color:#64748b;font-size:.75rem;">{{ r.created_at }}</td>
               <td>
-                <a class="btn-download" href="/results/{{ r.id }}">👁 Көру</a>
+                <a class="btn-dl" href="/results/{{ r.id }}">👁 Көру</a>
               </td>
             </tr>
             {% endfor %}
@@ -74,7 +77,7 @@
           <div class="emoji">📭</div>
           <h2>Әзірге жазба жоқ</h2>
           <p>Алғашқы транскрипцияңызды жасау үшін аудио/видео файл жүктеңіз</p>
-          <a href="/" class="btn-primary" style="display:inline-block;width:auto;padding:.75rem 2rem;">🎙️ Файл жүктеу</a>
+          <a href="/" class="btn-submit" style="display:inline-flex;width:auto;padding:.75rem 2rem;text-decoration:none;">🎙️ Файл жүктеу</a>
         </div>
       </div>
     {% endif %}
@@ -83,7 +86,7 @@
   </main>
 
   <footer class="site-footer">
-    <p>© 2024 Қазақ ASR субтитр салыстыру платформасы</p>
+    <p>© 2024 Қазақ ASR — Сөйлеуді мәтінге аудару аналитикалық платформасы</p>
   </footer>
 
   <script src="/static/js/main.js"></script>

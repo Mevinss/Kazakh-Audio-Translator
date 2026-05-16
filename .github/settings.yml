@@ -1,0 +1,3 @@
+repository:
+  description: "Flask web app for transcribing Kazakh audio/video and comparing Whisper and Faster-Whisper ASR models with WER/CER metrics."
+  topics: kazakh, asr, speech-recognition, speech-to-text, whisper, faster-whisper, flask, audio-transcription, wer, cer
